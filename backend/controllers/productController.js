@@ -82,7 +82,7 @@ export const getProductById = async (req, res, next) => {
     const relatedProducts = await Product.find({
       category: product.category,
       _id: { $ne: product._id },
-      status: "unAvailable",
+      status: "Available",
     })
       .limit(4)
       .sort({ createdAt: -1 });
