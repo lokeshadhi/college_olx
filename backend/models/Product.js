@@ -71,7 +71,12 @@ const productSchema = new mongoose.Schema(
 );
 
 // Support text search across the fields students are most likely to search by.
-
+productSchema.index({
+  title: "text",
+  description: "text",
+  "seller.name": "text",
+  "seller.department": "text",
+});
 
 const Product = mongoose.model("Product", productSchema);
 
