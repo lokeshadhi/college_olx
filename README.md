@@ -1,10 +1,4 @@
-# CampusX
 
-**Buy. Sell. Save. Inside Your Campus.**
-
-CampusX is a full-stack MERN marketplace built exclusively for college students to buy and sell second-hand items — books, electronics, cycles, furniture, hostel essentials, lab equipment, calculators, sports gear, stationery, and more.
-
----
 
 ## 1. Project Overview
 
