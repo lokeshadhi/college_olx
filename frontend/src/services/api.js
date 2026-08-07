@@ -6,7 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000
 // the backend travel with every request, so the SPA stays logged in on refresh.
 const api = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: true,
+  withCredentials: false,
 });
 
 // Normalize error messages so components can just read err.message.
