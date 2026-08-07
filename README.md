@@ -1,4 +1,8 @@
-
+if (err.code === 11000) {
+    statusCode = 400;
+    const field = Object.keys(err.keyValue || {})[0];
+    message = `An account with that ${field} already exists`;
+  }
 
 ## 1. Project Overview
 
