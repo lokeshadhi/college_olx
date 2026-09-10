@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { FiUploadCloud, FiX } from "react-icons/fi";
 import MainLayout from "../layouts/MainLayout.jsx";
 import Button from "../components/Button.jsx";
+import AiAssistantCard from "../components/AiAssistantCard.jsx";
 import { createProduct } from "../services/productService.js";
 import { CATEGORIES, CONDITIONS } from "../utils/constants.js";
 
@@ -40,6 +41,26 @@ const SellProduct = () => {
     setPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Callback when user clicks "Use Suggestions in Form" from AI card
+  const handleApplyAiSuggestions = ({ title, description, category, condition, price, tags }) => {
+    let finalDescription = description;
+    if (tags && tags.length > 0) {
+      const tagFooter = `\n\nTags: ${tags.map((t) => `#${t}`).join(" ")}`;
+      if (!finalDescription.includes("Tags:")) {
+        finalDescription += tagFooter;
+      }
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      title: title || prev.title,
+      description: finalDescription || prev.description,
+      category: category || prev.category,
+      condition: condition || prev.condition,
+      price: price || prev.price,
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -69,6 +90,58 @@ const SellProduct = () => {
         </div>
 
         <form className="sell-form-shell" onSubmit={handleSubmit}>
+          {/* Step 1: Upload Product Images */}
+          <div className="form-group" style={{ marginBottom: "24px" }}>
+            <label className="form-label" style={{ fontWeight: 600 }}>
+              1. Product Photos (up to {MAX_IMAGES})
+            </label>
+            <label className="image-drop" htmlFor="images">
+              <FiUploadCloud size={28} />
+              <p style={{ margin: "8px 0 0", fontWeight: 500 }}>
+                Click or drop photos of your item
+              </p>
+              <span className="form-help">JPG, PNG or WEBP — up to 5MB each</span>
+            </label>
+            <input
+              id="images"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              hidden
+              onChange={(e) => handleFiles(e.target.files)}
+            />
+
+            {previews.length > 0 && (
+              <div className="image-preview-row">
+                {previews.map((src, i) => (
+                  <div className="image-preview-thumb" key={src}>
+                    <img src={src} alt={`Preview ${i + 1}`} />
+                    <button type="button" onClick={() => removeImage(i)} aria-label="Remove image">
+                      <FiX />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Step 2: AI Listing Assistant */}
+          <AiAssistantCard
+            images={images}
+            onApplySuggestions={handleApplyAiSuggestions}
+            disabled={loading}
+          />
+
+          {/* Step 3: Review & Edit Listing Details */}
+          <div style={{ marginTop: "12px", marginBottom: "16px" }}>
+            <h3 style={{ fontSize: "1.05rem", color: "var(--color-ink)", margin: "0 0 6px" }}>
+              2. Listing Details (Review & Edit)
+            </h3>
+            <p style={{ fontSize: "0.84rem", color: "var(--color-text-muted)", margin: 0 }}>
+              All fields are fully editable. The listing will only be published when you click Submit Listing below.
+            </p>
+          </div>
+
           <div className="form-group">
             <label className="form-label" htmlFor="title">
               Title
@@ -80,6 +153,7 @@ const SellProduct = () => {
               placeholder="e.g. Casio FX-991ES Calculator"
               value={form.title}
               onChange={handleChange}
+              maxLength={120}
               required
             />
           </div>
@@ -95,6 +169,8 @@ const SellProduct = () => {
               placeholder="Describe the item's condition, usage, and any accessories included"
               value={form.description}
               onChange={handleChange}
+              rows={4}
+              maxLength={2000}
               required
             />
           </div>
@@ -165,47 +241,17 @@ const SellProduct = () => {
             </div>
             <div className="form-group">
               <label className="form-label" htmlFor="location">
-                Location
+                Campus Location (Optional)
               </label>
               <input
                 id="location"
                 name="location"
                 className="form-input"
-                placeholder="e.g. Boys Hostel Block C"
+                placeholder="e.g. Boys Hostel Block C, Library"
                 value={form.location}
                 onChange={handleChange}
               />
             </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Images (up to {MAX_IMAGES})</label>
-            <label className="image-drop" htmlFor="images">
-              <FiUploadCloud size={26} />
-              <p style={{ margin: "8px 0 0" }}>Click to upload product photos</p>
-              <span className="form-help">JPG, PNG or WEBP — up to 5MB each</span>
-            </label>
-            <input
-              id="images"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              multiple
-              hidden
-              onChange={(e) => handleFiles(e.target.files)}
-            />
-
-            {previews.length > 0 && (
-              <div className="image-preview-row">
-                {previews.map((src, i) => (
-                  <div className="image-preview-thumb" key={src}>
-                    <img src={src} alt={`Preview ${i + 1}`} />
-                    <button type="button" onClick={() => removeImage(i)} aria-label="Remove image">
-                      <FiX />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           <Button type="submit" variant="primary" block loading={loading}>
