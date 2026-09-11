@@ -1,4 +1,6 @@
 import Product from "../models/Product.js";
+import { escapeRegex } from "../middleware/securitySanitizer.js";
+import { aiSecurityService } from "../services/aiSecurityService.js";
 
 // @desc    Get all products with search, filters, sorting and pagination
 // @route   GET /api/products
@@ -19,12 +21,13 @@ export const getProducts = async (req, res, next) => {
 
     const query = {};
 
-    if (search) {
+    if (search && typeof search === "string" && search.trim()) {
+      const safeSearch = escapeRegex(search.trim());
       query.$or = [
-        { title: { $regex: search, $options: "i" } },
-        { category: { $regex: search, $options: "i" } },
-        { "seller.name": { $regex: search, $options: "i" } },
-        { "seller.department": { $regex: search, $options: "i" } },
+        { title: { $regex: safeSearch, $options: "i" } },
+        { category: { $regex: safeSearch, $options: "i" } },
+        { "seller.name": { $regex: safeSearch, $options: "i" } },
+        { "seller.department": { $regex: safeSearch, $options: "i" } },
       ];
     }
 
@@ -102,6 +105,20 @@ export const createProduct = async (req, res, next) => {
 
     const images = (req.files || []).map((file) => `/uploads/${file.filename}`);
 
+    // Intelligent AI security screening (non-blocking / fails open)
+    const securityAssessment = await aiSecurityService.analyzeListingSecurity({
+      title,
+      description,
+      category,
+      price,
+      location,
+      seller: {
+        name: req.user.name,
+        phone: req.user.phone,
+        department: req.user.department,
+      },
+    });
+
     const product = await Product.create({
       title,
       description,
@@ -116,6 +133,7 @@ export const createProduct = async (req, res, next) => {
         phone: req.user.phone,
         department: req.user.department,
       },
+      securityAssessment,
     });
 
     res.status(201).json({ success: true, message: "Product listed successfully", data: product });
@@ -144,6 +162,18 @@ export const updateProduct = async (req, res, next) => {
     if (req.files && req.files.length > 0) {
       const newImages = req.files.map((file) => `/uploads/${file.filename}`);
       product.images = [...product.images, ...newImages];
+    }
+
+    // Re-screen if title or description was modified
+    if (req.body.title || req.body.description) {
+      product.securityAssessment = await aiSecurityService.analyzeListingSecurity({
+        title: product.title,
+        description: product.description,
+        category: product.category,
+        price: product.price,
+        location: product.location,
+        seller: product.seller,
+      });
     }
 
     const updatedProduct = await product.save();

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 const userSchema = new mongoose.Schema(
   {
@@ -36,12 +37,32 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: [true, "Password is required"],
-      minlength: [6, "Password must be at least 6 characters"],
       select: false,
     },
     profileImage: {
       type: String,
       default: "",
+    },
+    // Brute-force protection & account lockout fields
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+    },
+    lockUntil: {
+      type: Date,
+    },
+    // Password reset fields (strictly stores only hashed tokens, never raw tokens)
+    passwordResetToken: {
+      type: String,
+      select: false,
+    },
+    passwordResetExpires: {
+      type: Date,
+      select: false,
+    },
+    // Invalidate existing sessions/tokens upon password reset
+    passwordChangedAt: {
+      type: Date,
     },
   },
   { timestamps: true }
@@ -60,10 +81,34 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Never leak the password hash when the document is serialized.
+// Check if account is currently locked due to repeated failed login attempts
+userSchema.methods.isLocked = function () {
+  return Boolean(this.lockUntil && this.lockUntil > Date.now());
+};
+
+// Generates a cryptographically secure 32-byte password reset token,
+// hashes it with SHA-256 for database storage, and sets a 15-minute expiration.
+userSchema.methods.createPasswordResetToken = function () {
+  const resetToken = crypto.randomBytes(32).toString("hex");
+
+  this.passwordResetToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  this.passwordResetExpires = Date.now() + 15 * 60 * 1000; // 15 minutes
+
+  return resetToken;
+};
+
+// Never leak sensitive authentication or security fields when document is serialized
 userSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.password;
+  delete obj.passwordResetToken;
+  delete obj.passwordResetExpires;
+  delete obj.failedLoginAttempts;
+  delete obj.lockUntil;
   return obj;
 };
 

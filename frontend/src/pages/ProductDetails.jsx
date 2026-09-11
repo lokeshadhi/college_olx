@@ -1,21 +1,57 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
-import { FiPhone, FiUser, FiHome as FiDept, FiMapPin } from "react-icons/fi";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { FiPhone, FiUser, FiHome as FiDept, FiMapPin, FiAlertTriangle, FiShield, FiMessageSquare } from "react-icons/fi";
+import toast from "react-hot-toast";
 import MainLayout from "../layouts/MainLayout.jsx";
 import Loader from "../components/Loader.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import ProductCard from "../components/ProductCard.jsx";
 import Button from "../components/Button.jsx";
 import { getProductById } from "../services/productService.js";
+import { chatService } from "../services/chatService.js";
+import { useAuth } from "../hooks/useAuth.js";
 import { resolveImageUrl } from "../utils/constants.js";
 
 const ProductDetails = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
   const [product, setProduct] = useState(null);
   const [related, setRelated] = useState([]);
   const [activeImage, setActiveImage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [startingChat, setStartingChat] = useState(false);
+
+  const isOwner = Boolean(
+    user &&
+      product &&
+      ((product.owner?._id && product.owner._id.toString() === user._id.toString()) ||
+        (product.owner && product.owner.toString() === user._id.toString()))
+  );
+
+  const handleStartChat = async () => {
+    if (!isAuthenticated) {
+      navigate("/login", { state: { from: `/products/${id}` } });
+      return;
+    }
+    if (isOwner) {
+      toast.error("You cannot chat on your own listing");
+      return;
+    }
+
+    setStartingChat(true);
+    try {
+      const res = await chatService.createOrGetConversation(product._id);
+      if (res.success && res.data?._id) {
+        navigate(`/chat/${res.data._id}`);
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to start conversation");
+    } finally {
+      setStartingChat(false);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -91,7 +127,34 @@ const ProductDetails = () => {
             <div className="details-badges">
               <span className={`badge ${isSold ? "badge-sold" : "badge-available"}`}>{product.status}</span>
               <span className="badge badge-condition">{product.condition}</span>
+              {product.securityAssessment?.riskLevel === "LOW" && (
+                <span className="badge" style={{ background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <FiShield /> Campus Verified
+                </span>
+              )}
             </div>
+
+            {product.securityAssessment && (product.securityAssessment.riskLevel === "HIGH" || product.securityAssessment.riskLevel === "CRITICAL") && (
+              <div
+                style={{
+                  background: "#fef2f2",
+                  border: "1px solid #f87171",
+                  borderRadius: "var(--radius-sm, 8px)",
+                  padding: "12px 16px",
+                  margin: "16px 0",
+                  color: "#991b1b",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 600 }}>
+                  <FiAlertTriangle /> Security Warning: High Risk Listing
+                </div>
+                <p style={{ margin: "6px 0 0", fontSize: "0.85rem", lineHeight: 1.4 }}>
+                  Our automated security scanner flagged potential risk in this listing
+                  {product.securityAssessment.flags?.length ? `: ${product.securityAssessment.flags.join(", ")}` : ""}.
+                  Never send advance payments or wire money. Meet on campus in daylight hours.
+                </p>
+              </div>
+            )}
 
             <p className="details-desc">{product.description}</p>
 
@@ -125,11 +188,24 @@ const ProductDetails = () => {
               )}
             </div>
 
-            <a href={`tel:${product.seller?.phone}`} style={{ display: "block" }}>
-              <Button variant="primary" block disabled={isSold}>
-                {isSold ? "Already Sold" : "Contact Seller"}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+              <Button
+                variant="primary"
+                block
+                disabled={isSold || isOwner}
+                loading={startingChat}
+                onClick={handleStartChat}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}
+              >
+                <FiMessageSquare /> {isOwner ? "Your Listing" : isSold ? "Already Sold" : "Chat with Seller"}
               </Button>
-            </a>
+
+              <a href={`tel:${product.seller?.phone}`} style={{ display: "block" }}>
+                <Button variant="secondary" block disabled={isSold}>
+                  <FiPhone style={{ marginRight: "0.4rem" }} /> Call Seller ({product.seller?.phone})
+                </Button>
+              </a>
+            </div>
           </div>
         </div>
 

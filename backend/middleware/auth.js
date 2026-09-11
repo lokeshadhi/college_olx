@@ -22,6 +22,17 @@ export const protect = async (req, res, next) => {
       return res.status(401).json({ success: false, message: "Not authorized, user no longer exists" });
     }
 
+    // Invalidate token if password was changed after token issuance
+    if (user.passwordChangedAt) {
+      const changedTimestamp = parseInt(user.passwordChangedAt.getTime() / 1000, 10);
+      if (decoded.iat && decoded.iat < changedTimestamp) {
+        return res.status(401).json({
+          success: false,
+          message: "Password was recently changed. Please log in again with your new password.",
+        });
+      }
+    }
+
     req.user = user;
     next();
   } catch (error) {

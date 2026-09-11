@@ -14,6 +14,10 @@ export const handleValidation = (req, res, next) => {
   next();
 };
 
+// Password policy: minimum 8 characters, at least 1 uppercase, 1 lowercase, 1 digit, 1 special character
+export const passwordComplexityRegex =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_~`+\-=/\\\[\]]).{8,}$/;
+
 export const registerRules = [
   body("name").trim().notEmpty().withMessage("Full name is required"),
   body("email").trim().isEmail().withMessage("A valid college email is required"),
@@ -22,7 +26,11 @@ export const registerRules = [
   body("year")
     .isIn(["1st Year", "2nd Year", "3rd Year", "4th Year", "Final Year"])
     .withMessage("Please select a valid year"),
-  body("password").isLength({ min: 6 }).withMessage("Password must be at least 6 characters"),
+  body("password")
+    .matches(passwordComplexityRegex)
+    .withMessage(
+      "Password must be at least 8 characters and include uppercase, lowercase, number, and special character"
+    ),
   body("confirmPassword").custom((value, { req }) => {
     if (value !== req.body.password) {
       throw new Error("Passwords do not match");
@@ -34,6 +42,24 @@ export const registerRules = [
 export const loginRules = [
   body("email").trim().isEmail().withMessage("A valid email is required"),
   body("password").notEmpty().withMessage("Password is required"),
+];
+
+export const forgotPasswordRules = [
+  body("email").trim().isEmail().withMessage("A valid college email is required"),
+];
+
+export const resetPasswordRules = [
+  body("password")
+    .matches(passwordComplexityRegex)
+    .withMessage(
+      "Password must be at least 8 characters and include uppercase, lowercase, number, and special character"
+    ),
+  body("confirmPassword").custom((value, { req }) => {
+    if (value !== req.body.password) {
+      throw new Error("Passwords do not match");
+    }
+    return true;
+  }),
 ];
 
 export const productRules = [

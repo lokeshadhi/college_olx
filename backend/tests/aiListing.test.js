@@ -45,9 +45,13 @@ describe("CampusX AI Listing Assistant & Integration Tests", () => {
     if (server) server.close();
   });
 
-  // Helper to create a fake image blob
+  // Helper to create a fake image blob with valid magic bytes
   const createMockImageBlob = (name = "photo.jpg", type = "image/jpeg", size = 1024) => {
-    const buffer = Buffer.alloc(size, "a");
+    const buffer = Buffer.alloc(Math.max(size, 16), 0);
+    buffer[0] = 0xff;
+    buffer[1] = 0xd8;
+    buffer[2] = 0xff;
+    buffer[3] = 0xe0;
     return new Blob([buffer], { type });
   };
 

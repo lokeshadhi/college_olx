@@ -3,10 +3,12 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { FiSun, FiMoon, FiMenu, FiX } from "react-icons/fi";
 import { useAuth } from "../hooks/useAuth.js";
 import { useTheme } from "../hooks/useTheme.js";
+import { useSocket } from "../hooks/useSocket.js";
 
 const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { unreadTotal } = useSocket();
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -41,6 +43,26 @@ const Navbar = () => {
           {isAuthenticated && (
             <NavLink to="/my-products" onClick={closeMenu}>
               My Products
+            </NavLink>
+          )}
+          {isAuthenticated && (
+            <NavLink to="/chat" onClick={closeMenu} style={{ position: "relative" }}>
+              Messages
+              {unreadTotal > 0 && (
+                <span
+                  style={{
+                    background: "var(--color-coral, #D9634B)",
+                    color: "#ffffff",
+                    fontSize: "0.68rem",
+                    fontWeight: 700,
+                    padding: "2px 6px",
+                    borderRadius: "999px",
+                    marginLeft: "6px",
+                  }}
+                >
+                  {unreadTotal}
+                </span>
+              )}
             </NavLink>
           )}
           {isAuthenticated && (

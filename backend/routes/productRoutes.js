@@ -11,7 +11,7 @@ import {
 } from "../controllers/productController.js";
 import { protect, isOwner } from "../middleware/auth.js";
 import { productRules, handleValidation } from "../middleware/validate.js";
-import upload from "../middleware/upload.js";
+import { secureProductUpload } from "../middleware/upload.js";
 
 const router = express.Router();
 
@@ -21,13 +21,13 @@ router.get("/user/me", protect, getMyProducts);
 router.get("/", getProducts);
 router.get("/:id", getProductById);
 
-router.post("/", protect, upload.array("images", 6), productRules, handleValidation, createProduct);
+router.post("/", protect, secureProductUpload, productRules, handleValidation, createProduct);
 
 router.put(
   "/:id",
   protect,
   isOwner(getProductOwnerId),
-  upload.array("images", 6),
+  secureProductUpload,
   updateProduct
 );
 
