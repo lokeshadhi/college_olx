@@ -64,6 +64,24 @@ const userSchema = new mongoose.Schema(
     passwordChangedAt: {
       type: Date,
     },
+    // Student email verification fields
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationOTPHash: {
+      type: String,
+      select: false,
+    },
+    emailVerificationOTPExpires: {
+      type: Date,
+      select: false,
+    },
+    emailVerificationAttempts: {
+      type: Number,
+      default: 0,
+      select: false,
+    },
   },
   { timestamps: true }
 );
@@ -101,6 +119,44 @@ userSchema.methods.createPasswordResetToken = function () {
   return resetToken;
 };
 
+// Generates a cryptographically secure 6-digit OTP for student email verification,
+// hashes it with SHA-256 for database storage, sets a 10-minute expiration,
+// and resets attempts to 0.
+userSchema.methods.createEmailVerificationOTP = function () {
+  // Cryptographically secure 6-digit number between 100000 and 999999
+  const otp = crypto.randomInt(100000, 1000000).toString();
+
+  this.emailVerificationOTPHash = crypto
+    .createHash("sha256")
+    .update(otp)
+    .digest("hex");
+
+  this.emailVerificationOTPExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+  this.emailVerificationAttempts = 0;
+
+  return otp;
+};
+
+// Constant-time comparison of candidate OTP against stored hash
+userSchema.methods.verifyOTP = function (candidateOTP) {
+  if (!candidateOTP || typeof candidateOTP !== "string") return false;
+  if (!this.emailVerificationOTPHash) return false;
+
+  const candidateHash = crypto
+    .createHash("sha256")
+    .update(candidateOTP.trim())
+    .digest("hex");
+
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(candidateHash, "hex"),
+      Buffer.from(this.emailVerificationOTPHash, "hex")
+    );
+  } catch {
+    return false;
+  }
+};
+
 // Never leak sensitive authentication or security fields when document is serialized
 userSchema.methods.toJSON = function () {
   const obj = this.toObject();
@@ -109,6 +165,9 @@ userSchema.methods.toJSON = function () {
   delete obj.passwordResetExpires;
   delete obj.failedLoginAttempts;
   delete obj.lockUntil;
+  delete obj.emailVerificationOTPHash;
+  delete obj.emailVerificationOTPExpires;
+  delete obj.emailVerificationAttempts;
   return obj;
 };
 

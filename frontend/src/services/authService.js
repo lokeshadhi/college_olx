@@ -2,7 +2,17 @@ import api from "./api.js";
 
 export const registerUser = async (payload) => {
   const { data } = await api.post("/auth/register", payload);
-  return data.data;
+  return data;
+};
+
+export const verifyEmail = async ({ email, otp }) => {
+  const { data } = await api.post("/auth/verify-email", { email, otp });
+  return data;
+};
+
+export const resendVerification = async (email) => {
+  const { data } = await api.post("/auth/resend-verification", { email });
+  return data;
 };
 
 export const loginUser = async (payload) => {

@@ -6,6 +6,8 @@ import {
   logoutUser,
   fetchProfile,
   updateProfile as updateProfileService,
+  verifyEmail as verifyEmailService,
+  resendVerification as resendVerificationService,
 } from "../services/authService.js";
 
 export const AuthContext = createContext(null);
@@ -38,9 +40,25 @@ export const AuthProvider = ({ children }) => {
 
   const register = useCallback(async (payload) => {
     const data = await registerUser(payload);
-    setUser(data);
-    toast.success("Account created — welcome to CampusX!");
+    if (data.data && !data.requiresVerification) {
+      setUser(data.data);
+    }
     return data;
+  }, []);
+
+  const verifyEmail = useCallback(async ({ email, otp }) => {
+    const res = await verifyEmailService({ email, otp });
+    if (res.data) {
+      setUser(res.data);
+    }
+    toast.success("Email verified! Welcome to CampusX.");
+    return res;
+  }, []);
+
+  const resendVerification = useCallback(async (email) => {
+    const res = await resendVerificationService(email);
+    toast.success("Verification code sent to your student email.");
+    return res;
   }, []);
 
   const logout = useCallback(async () => {
@@ -58,7 +76,17 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, isAuthenticated: !!user, login, register, logout, updateProfile }}
+      value={{
+        user,
+        loading,
+        isAuthenticated: !!user,
+        login,
+        register,
+        logout,
+        updateProfile,
+        verifyEmail,
+        resendVerification,
+      }}
     >
       {children}
     </AuthContext.Provider>

@@ -1,4 +1,5 @@
 import { body, validationResult } from "express-validator";
+import { getCollegeEmailValidationError } from "../utils/emailValidator.js";
 
 // Runs after the express-validator rule chains below; collects any failures
 // into a consistent JSON error response instead of letting bad data through.
@@ -20,7 +21,17 @@ export const passwordComplexityRegex =
 
 export const registerRules = [
   body("name").trim().notEmpty().withMessage("Full name is required"),
-  body("email").trim().isEmail().withMessage("A valid college email is required"),
+  body("email")
+    .trim()
+    .notEmpty()
+    .withMessage("College email is required")
+    .custom((val) => {
+      const error = getCollegeEmailValidationError(val);
+      if (error) {
+        throw new Error(error);
+      }
+      return true;
+    }),
   body("phone").trim().matches(/^[0-9]{10}$/).withMessage("Phone number must be 10 digits"),
   body("department").trim().notEmpty().withMessage("Department is required"),
   body("year")
@@ -37,6 +48,40 @@ export const registerRules = [
     }
     return true;
   }),
+];
+
+export const verifyEmailRules = [
+  body("email")
+    .trim()
+    .notEmpty()
+    .withMessage("College email is required")
+    .custom((val) => {
+      const error = getCollegeEmailValidationError(val);
+      if (error) {
+        throw new Error(error);
+      }
+      return true;
+    }),
+  body("otp")
+    .trim()
+    .notEmpty()
+    .withMessage("Verification code is required")
+    .matches(/^[0-9]{6}$/)
+    .withMessage("Verification code must be exactly 6 digits"),
+];
+
+export const resendVerificationRules = [
+  body("email")
+    .trim()
+    .notEmpty()
+    .withMessage("College email is required")
+    .custom((val) => {
+      const error = getCollegeEmailValidationError(val);
+      if (error) {
+        throw new Error(error);
+      }
+      return true;
+    }),
 ];
 
 export const loginRules = [

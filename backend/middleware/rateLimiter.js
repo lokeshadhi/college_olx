@@ -98,3 +98,36 @@ export const chatLimiter = rateLimit({
   handler: createStandardHandler("Chat request limit reached. Please wait a moment."),
 });
 
+/**
+ * Verify Email rate limiter:
+ * 10 attempts per 15 minutes per IP to prevent brute-force OTP guessing.
+ */
+export const verifyEmailLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_VERIFY_MAX) || (isTestMode ? 1000 : 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: createStandardHandler(
+    "Too many verification attempts from this IP. Please wait 15 minutes before trying again."
+  ),
+});
+
+/**
+ * Resend Verification Code rate limiter:
+ * 3 requests per 15 minutes per email/IP to prevent spamming transactional email providers.
+ */
+export const resendVerificationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_RESEND_MAX) || (isTestMode ? 1000 : 3),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const email = req.body?.email && typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    return email ? `resend_${email}` : ipKeyGenerator(req.ip);
+  },
+  handler: createStandardHandler(
+    "Too many verification code requests. Please wait 15 minutes before requesting another code."
+  ),
+});
+
+

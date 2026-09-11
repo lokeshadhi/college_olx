@@ -44,7 +44,7 @@ const Login = () => {
                 name="email"
                 type="email"
                 className="form-input"
-                placeholder="you@college.edu"
+                placeholder="123456@nitkkr.ac.in"
                 value={form.email}
                 onChange={handleChange}
                 required

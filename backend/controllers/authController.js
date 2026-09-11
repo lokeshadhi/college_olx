@@ -3,41 +3,291 @@ import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import generateToken from "../utils/generateToken.js";
 import { logSecurityEvent, SECURITY_EVENTS } from "../utils/securityLogger.js";
+import { normalizeEmail, isValidCollegeEmail } from "../utils/emailValidator.js";
+import { sendVerificationOTP } from "../services/emailService.js";
 
 // Dummy hash for constant-time comparison when email is not found
 const DUMMY_HASH = "$2a$10$abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmno";
 
-// @desc    Register a new student
+// @desc    Register a new student and dispatch 6-digit verification code
 // @route   POST /api/auth/register
 // @access  Public
 export const register = async (req, res, next) => {
   try {
     const { name, email, phone, department, year, password } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
-    if (existingUser) {
-      logSecurityEvent(SECURITY_EVENTS.LOGIN_FAILED, {
-        req,
-        metadata: { reason: "Registration collision: email already exists" },
+    if (!isValidCollegeEmail(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please use a valid NIT Kurukshetra student email such as 123456@nitkkr.ac.in.",
       });
-      return res.status(400).json({ success: false, message: "An account with this email already exists" });
     }
 
-    const user = await User.create({ name, email, phone, department, year, password });
+    const existingUser = await User.findOne({ email: normalizedEmail }).select(
+      "+emailVerificationOTPHash +emailVerificationOTPExpires +emailVerificationAttempts"
+    );
 
+    if (existingUser) {
+      if (existingUser.isEmailVerified) {
+        logSecurityEvent(SECURITY_EVENTS.LOGIN_FAILED, {
+          req,
+          metadata: { reason: "Registration collision: verified account already exists" },
+        });
+        return res.status(400).json({
+          success: false,
+          message: "An account with this email already exists",
+        });
+      }
+
+      // Existing unverified registration: refresh profile info and dispatch new OTP
+      existingUser.name = name || existingUser.name;
+      existingUser.phone = phone || existingUser.phone;
+      existingUser.department = department || existingUser.department;
+      existingUser.year = year || existingUser.year;
+      if (password) existingUser.password = password;
+
+      const otp = existingUser.createEmailVerificationOTP();
+      await existingUser.save();
+
+      await sendVerificationOTP({
+        email: existingUser.email,
+        name: existingUser.name,
+        otp,
+      });
+
+      const responsePayload = {
+        success: true,
+        message: "Verification code sent to your NIT Kurukshetra email. Please verify to complete registration.",
+        requiresVerification: true,
+        email: existingUser.email,
+      };
+
+      if (process.env.NODE_ENV !== "production") {
+        responsePayload.debugOtp = otp;
+      }
+
+      return res.status(200).json(responsePayload);
+    }
+
+    // New student user registration
+    const user = new User({
+      name,
+      email: normalizedEmail,
+      phone,
+      department,
+      year,
+      password,
+      isEmailVerified: false,
+    });
+
+    const otp = user.createEmailVerificationOTP();
+    await user.save();
+
+    await sendVerificationOTP({
+      email: user.email,
+      name: user.name,
+      otp,
+    });
+
+    logSecurityEvent(SECURITY_EVENTS.LOGIN_SUCCESS, {
+      req,
+      userId: user._id,
+      metadata: { action: "register_pending_verification" },
+    });
+
+    const responsePayload = {
+      success: true,
+      message: "Registration successful. Please verify your student email with the 6-digit code sent to you.",
+      requiresVerification: true,
+      email: user.email,
+    };
+
+    if (process.env.NODE_ENV !== "production") {
+      responsePayload.debugOtp = otp;
+    }
+
+    res.status(201).json(responsePayload);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Verify student email using 6-digit OTP
+// @route   POST /api/auth/verify-email
+// @access  Public
+export const verifyEmail = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!isValidCollegeEmail(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please use a valid NIT Kurukshetra student email such as 123456@nitkkr.ac.in.",
+      });
+    }
+
+    if (!otp || typeof otp !== "string" || !/^[0-9]{6}$/.test(otp.trim())) {
+      return res.status(400).json({
+        success: false,
+        message: "Verification code must be exactly 6 digits.",
+      });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail }).select(
+      "+emailVerificationOTPHash +emailVerificationOTPExpires +emailVerificationAttempts"
+    );
+
+    if (!user) {
+      logSecurityEvent(SECURITY_EVENTS.LOGIN_FAILED, {
+        req,
+        metadata: { reason: "Verification attempt on non-existent student email", email: normalizedEmail },
+      });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid verification request. Please register first.",
+      });
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Your email is already verified. Please log in.",
+      });
+    }
+
+    // Check maximum attempts (5 maximum attempts per OTP session)
+    if ((user.emailVerificationAttempts || 0) >= 5) {
+      user.emailVerificationOTPHash = undefined;
+      user.emailVerificationOTPExpires = undefined;
+      await user.save({ validateBeforeSave: false });
+
+      logSecurityEvent(SECURITY_EVENTS.RATE_LIMIT_EXCEEDED, {
+        req,
+        userId: user._id,
+        metadata: { reason: "Max OTP verification attempts exceeded" },
+      });
+
+      return res.status(400).json({
+        success: false,
+        message: "Too many verification attempts. Please request a new code.",
+      });
+    }
+
+    // Check expiration (10 minutes)
+    if (!user.emailVerificationOTPExpires || user.emailVerificationOTPExpires.getTime() < Date.now()) {
+      return res.status(400).json({
+        success: false,
+        message: "This verification code has expired. Please request a new code.",
+      });
+    }
+
+    // Constant-time OTP comparison
+    const isMatch = user.verifyOTP(otp);
+
+    if (!isMatch) {
+      user.emailVerificationAttempts = (user.emailVerificationAttempts || 0) + 1;
+      await user.save({ validateBeforeSave: false });
+
+      logSecurityEvent(SECURITY_EVENTS.LOGIN_FAILED, {
+        req,
+        userId: user._id,
+        metadata: { reason: "Incorrect verification OTP", attempts: user.emailVerificationAttempts },
+      });
+
+      return res.status(400).json({
+        success: false,
+        message: "Invalid verification code.",
+      });
+    }
+
+    // Verification successful: promote user to Verified Student
+    user.isEmailVerified = true;
+    user.emailVerificationOTPHash = undefined;
+    user.emailVerificationOTPExpires = undefined;
+    user.emailVerificationAttempts = 0;
+    await user.save({ validateBeforeSave: false });
+
+    // Issue httpOnly session cookie
     generateToken(res, user._id);
 
     logSecurityEvent(SECURITY_EVENTS.LOGIN_SUCCESS, {
       req,
       userId: user._id,
-      metadata: { action: "register" },
+      metadata: { action: "email_verification_success" },
     });
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
-      message: "Registration successful",
+      message: "Email verified successfully. Welcome to CampusX!",
       data: user,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Resend 6-digit student email verification OTP
+// @route   POST /api/auth/resend-verification
+// @access  Public
+export const resendVerification = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!isValidCollegeEmail(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please use a valid NIT Kurukshetra student email such as 123456@nitkkr.ac.in.",
+      });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail }).select(
+      "+emailVerificationOTPHash +emailVerificationOTPExpires +emailVerificationAttempts"
+    );
+
+    if (!user) {
+      // Return generic message to mitigate account enumeration
+      return res.status(200).json({
+        success: true,
+        message: "If an unverified account exists for this email, a new verification code has been sent.",
+      });
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Your email is already verified. Please log in.",
+      });
+    }
+
+    // Invalidate previous OTP and generate fresh 10-minute OTP
+    const otp = user.createEmailVerificationOTP();
+    await user.save({ validateBeforeSave: false });
+
+    await sendVerificationOTP({
+      email: user.email,
+      name: user.name,
+      otp,
+    });
+
+    logSecurityEvent(SECURITY_EVENTS.PASSWORD_RESET_REQUESTED, {
+      req,
+      userId: user._id,
+      metadata: { action: "resend_verification_otp" },
+    });
+
+    const responsePayload = {
+      success: true,
+      message: "A new verification code has been sent to your college email.",
+    };
+
+    if (process.env.NODE_ENV !== "production") {
+      responsePayload.debugOtp = otp;
+    }
+
+    return res.status(200).json(responsePayload);
   } catch (error) {
     next(error);
   }

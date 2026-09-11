@@ -6,6 +6,8 @@ import Button from "../components/Button.jsx";
 import { useAuth } from "../hooks/useAuth.js";
 import { YEARS } from "../utils/constants.js";
 
+import { getCollegeEmailValidationError } from "../utils/emailValidator.js";
+
 const INITIAL_FORM = {
   name: "",
   email: "",
@@ -20,12 +22,32 @@ const Register = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState(INITIAL_FORM);
+  const [emailError, setEmailError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
+
+    if (name === "email") {
+      if (!value.trim()) {
+        setEmailError("");
+      } else {
+        const err = getCollegeEmailValidationError(value);
+        setEmailError(err || "");
+      }
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const validationErr = getCollegeEmailValidationError(form.email);
+    if (validationErr) {
+      setEmailError(validationErr);
+      toast.error(validationErr);
+      return;
+    }
 
     if (form.password !== form.confirmPassword) {
       toast.error("Passwords do not match");
@@ -34,8 +56,15 @@ const Register = () => {
 
     setLoading(true);
     try {
-      await register(form);
-      navigate("/browse");
+      const res = await register(form);
+      const cleanEmail = form.email.trim().toLowerCase();
+
+      if (res?.requiresVerification) {
+        toast.success("Verification code sent! Please check your student email.");
+        navigate(`/verify-email?email=${encodeURIComponent(cleanEmail)}`);
+      } else {
+        navigate("/browse");
+      }
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -74,12 +103,28 @@ const Register = () => {
                 id="email"
                 name="email"
                 type="email"
-                className="form-input"
-                placeholder="you@college.edu"
+                className={`form-input ${emailError ? "input-error" : ""}`}
+                placeholder="123456@nitkkr.ac.in"
                 value={form.email}
                 onChange={handleChange}
                 required
               />
+              <span className="form-help" style={{ display: "block", marginTop: "4px", fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
+                Use your NIT Kurukshetra student email.
+              </span>
+              {emailError && (
+                <span
+                  style={{
+                    display: "block",
+                    marginTop: "4px",
+                    fontSize: "0.82rem",
+                    color: "var(--color-coral, #D9634B)",
+                    fontWeight: 500,
+                  }}
+                >
+                  {emailError}
+                </span>
+              )}
             </div>
 
             <div className="form-row">

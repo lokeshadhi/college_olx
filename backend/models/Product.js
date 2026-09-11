@@ -55,6 +55,7 @@ const productSchema = new mongoose.Schema(
       name: { type: String, required: true },
       phone: { type: String, required: true },
       department: { type: String, required: true },
+      isEmailVerified: { type: Boolean, default: false },
     },
     owner: {
       type: mongoose.Schema.Types.ObjectId,

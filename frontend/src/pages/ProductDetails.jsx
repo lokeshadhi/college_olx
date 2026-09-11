@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { FiPhone, FiUser, FiHome as FiDept, FiMapPin, FiAlertTriangle, FiShield, FiMessageSquare } from "react-icons/fi";
+import { FiPhone, FiUser, FiHome as FiDept, FiMapPin, FiAlertTriangle, FiShield, FiMessageSquare, FiCheckCircle } from "react-icons/fi";
 import toast from "react-hot-toast";
 import MainLayout from "../layouts/MainLayout.jsx";
 import Loader from "../components/Loader.jsx";
@@ -184,6 +184,25 @@ const ProductDetails = () => {
                     <FiMapPin /> Location
                   </span>
                   <span>{product.location}</span>
+                </div>
+              )}
+              {Boolean(product.owner?.isEmailVerified ?? product.seller?.isEmailVerified) && (
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    marginTop: "12px",
+                    padding: "4px 10px",
+                    borderRadius: "999px",
+                    background: "rgba(27, 77, 62, 0.1)",
+                    color: "var(--color-primary, #1B4D3E)",
+                    fontSize: "0.82rem",
+                    fontWeight: 700,
+                  }}
+                >
+                  <FiCheckCircle style={{ color: "var(--color-primary, #1B4D3E)" }} />
+                  <span>Verified Student</span>
                 </div>
               )}
             </div>

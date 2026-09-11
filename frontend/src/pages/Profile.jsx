@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { FiCheckCircle, FiAlertCircle } from "react-icons/fi";
 import toast from "react-hot-toast";
 import MainLayout from "../layouts/MainLayout.jsx";
 import Button from "../components/Button.jsx";
@@ -54,6 +56,62 @@ const Profile = () => {
             <div className="profile-dept">
               {user.department} · {user.year}
             </div>
+            {user.isEmailVerified ? (
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  marginTop: "8px",
+                  padding: "4px 12px",
+                  borderRadius: "999px",
+                  background: "rgba(27, 77, 62, 0.1)",
+                  color: "var(--color-primary, #1B4D3E)",
+                  fontSize: "0.82rem",
+                  fontWeight: 700,
+                }}
+              >
+                <FiCheckCircle />
+                <span>Verified Student</span>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "inline-flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "4px",
+                  marginTop: "8px",
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "4px 10px",
+                    borderRadius: "999px",
+                    background: "rgba(217, 99, 75, 0.1)",
+                    color: "var(--color-coral, #D9634B)",
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  <FiAlertCircle /> Unverified Student
+                </span>
+                <Link
+                  to={`/verify-email?email=${encodeURIComponent(user.email || "")}`}
+                  style={{
+                    fontSize: "0.82rem",
+                    color: "var(--color-primary, #1B4D3E)",
+                    fontWeight: 600,
+                    textDecoration: "underline",
+                  }}
+                >
+                  Verify Student Email
+                </Link>
+              </div>
+            )}
             <div className="profile-stats">
               <div>
                 <div className="profile-stat-num">{stats.postedCount}</div>

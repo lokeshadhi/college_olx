@@ -77,7 +77,10 @@ export const getProducts = async (req, res, next) => {
 // @access  Public
 export const getProductById = async (req, res, next) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findById(req.params.id).populate(
+      "owner",
+      "name department isEmailVerified profileImage"
+    );
     if (!product) {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
@@ -132,6 +135,7 @@ export const createProduct = async (req, res, next) => {
         name: req.user.name,
         phone: req.user.phone,
         department: req.user.department,
+        isEmailVerified: Boolean(req.user.isEmailVerified),
       },
       securityAssessment,
     });
