@@ -175,7 +175,7 @@ const ReviewModal = ({
               marginBottom: "8px",
             }}
           >
-            {existingReview ? "Edit Review" : "Rate & Review"}
+            {existingReview ? "Edit Review" : targetRole === "seller" ? "Rate Seller" : "Rate Buyer"}
           </span>
           <h2
             style={{
@@ -187,7 +187,9 @@ const ReviewModal = ({
           >
             {existingReview
               ? "Update your review"
-              : `How was your experience with ${targetUser.name || "this student"}?`}
+              : targetRole === "seller"
+              ? `Rate Seller: ${targetUser.name || "Seller"}`
+              : `Rate Buyer: ${targetUser.name || "Buyer"}`}
           </h2>
         </div>
 

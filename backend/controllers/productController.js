@@ -1,4 +1,5 @@
 import Product from "../models/Product.js";
+import Transaction from "../models/Transaction.js";
 import { escapeRegex } from "../middleware/securitySanitizer.js";
 import { aiSecurityService } from "../services/aiSecurityService.js";
 import cloudinary from "../config/cloudinary.js";
@@ -273,11 +274,15 @@ export const getMyProducts = async (req, res, next) => {
     const products = await Product.find({ owner: req.user._id }).sort({ createdAt: -1 });
     const postedCount = products.length;
     const soldCount = products.filter((p) => p.status === "Sold").length;
+    const boughtCount = await Transaction.countDocuments({
+      buyer: req.user._id,
+      status: "COMPLETED",
+    });
 
     res.status(200).json({
       success: true,
       data: products,
-      stats: { postedCount, soldCount },
+      stats: { postedCount, soldCount, boughtCount },
     });
   } catch (error) {
     next(error);

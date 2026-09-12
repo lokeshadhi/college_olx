@@ -46,6 +46,11 @@ const Navbar = () => {
             </NavLink>
           )}
           {isAuthenticated && (
+            <NavLink to="/my-transactions" onClick={closeMenu}>
+              Transactions
+            </NavLink>
+          )}
+          {isAuthenticated && (
             <NavLink to="/chat" onClick={closeMenu} style={{ position: "relative" }}>
               Messages
               {unreadTotal > 0 && (

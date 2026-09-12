@@ -12,6 +12,7 @@ import ProductDetails from "./pages/ProductDetails.jsx";
 import SellProduct from "./pages/SellProduct.jsx";
 import EditProduct from "./pages/EditProduct.jsx";
 import MyProducts from "./pages/MyProducts.jsx";
+import MyTransactions from "./pages/MyTransactions.jsx";
 import Profile from "./pages/Profile.jsx";
 import Chat from "./pages/Chat.jsx";
 import NotFound from "./pages/NotFound.jsx";
@@ -62,6 +63,30 @@ function App() {
           element={
             <ProtectedRoute>
               <MyProducts />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-transactions"
+          element={
+            <ProtectedRoute>
+              <MyTransactions />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transactions"
+          element={
+            <ProtectedRoute>
+              <MyTransactions />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-purchases"
+          element={
+            <ProtectedRoute>
+              <MyTransactions />
             </ProtectedRoute>
           }
         />

@@ -151,42 +151,92 @@ describe("CampusX Feature #19: Ratings & Reviews Test Suite", () => {
       };
     };
 
+    Product.find = (query) => {
+      let results = [mockProduct];
+      if (query?.owner) {
+        results = results.filter((p) => (p.owner?._id || p.owner).toString() === query.owner.toString());
+      }
+      const chain = {
+        sort: () => chain,
+        then: (fn) => Promise.resolve(results).then(fn),
+        catch: (fn) => Promise.resolve(results).catch(fn),
+      };
+      return chain;
+    };
+
     // Mock Transaction queries
     Transaction.findById = (id) => {
-      const txn = transactionsDb.find((t) => t._id.toString() === id.toString());
-      return {
-        populate: () => Promise.resolve(txn || null),
+      let txn = transactionsDb.find((t) => t._id.toString() === id.toString());
+      const chain = {
+        populate: (field) => {
+          if (txn) {
+            const item = txn.toObject ? txn.toObject() : (txn._doc ? { ...txn._doc } : { ...txn });
+            if (field === "buyer") {
+              const buyerIdStr = (item.buyer?._id || item.buyer)?.toString();
+              item.buyer = buyerIdStr ? usersDb.find((u) => u._id.toString() === buyerIdStr) || item.buyer : item.buyer;
+            }
+            if (field === "seller") {
+              const sellerIdStr = (item.seller?._id || item.seller)?.toString();
+              item.seller = sellerIdStr ? usersDb.find((u) => u._id.toString() === sellerIdStr) || item.seller : item.seller;
+            }
+            if (field === "product") {
+              item.product = mockProduct;
+            }
+            txn = item;
+          }
+          return chain;
+        },
         then: (fn) => Promise.resolve(txn || null).then(fn),
         catch: (fn) => Promise.resolve(txn || null).catch(fn),
       };
+      return chain;
     };
 
     Transaction.find = (query) => {
       let results = [...transactionsDb];
       if (query?.status) {
-        results = results.filter((t) => t.status === query.status);
+        results = results.filter((t) => (t.status || t._doc?.status) === query.status);
+      }
+      if (query?.product) {
+        results = results.filter((t) => {
+          const prod = t.product || t._doc?.product;
+          return (prod?._id || prod).toString() === query.product.toString();
+        });
       }
       if (query?.$or) {
-        results = results.filter((t) =>
-          query.$or.some((cond) =>
-            (cond.buyer && t.buyer.toString() === cond.buyer.toString()) ||
-            (cond.seller && t.seller.toString() === cond.seller.toString())
-          )
-        );
+        results = results.filter((t) => {
+          const buyer = t.buyer || t._doc?.buyer;
+          const seller = t.seller || t._doc?.seller;
+          return query.$or.some((cond) =>
+            (cond.buyer && (buyer?._id || buyer).toString() === cond.buyer.toString()) ||
+            (cond.seller && (seller?._id || seller).toString() === cond.seller.toString())
+          );
+        });
       }
 
       const chain = {
-        sort: () => chain,
+        sort: (sortCriteria) => {
+          if (sortCriteria?.amount === -1) {
+            results.sort((a, b) => {
+              const aAmt = a.amount ?? a._doc?.amount ?? 0;
+              const bAmt = b.amount ?? b._doc?.amount ?? 0;
+              return bAmt - aAmt;
+            });
+          }
+          return chain;
+        },
         skip: () => chain,
         limit: () => chain,
         populate: (field) => {
           results = results.map((t) => {
-            const item = { ...t };
+            const item = t.toObject ? t.toObject() : (t._doc ? { ...t._doc } : { ...t });
             if (field === "buyer") {
-              item.buyer = usersDb.find((u) => u._id.toString() === (t.buyer?._id || t.buyer).toString()) || t.buyer;
+              const buyerIdStr = (t.buyer?._id || t.buyer || t._doc?.buyer)?.toString();
+              item.buyer = buyerIdStr ? usersDb.find((u) => u._id.toString() === buyerIdStr) || item.buyer : item.buyer;
             }
             if (field === "seller") {
-              item.seller = usersDb.find((u) => u._id.toString() === (t.seller?._id || t.seller).toString()) || t.seller;
+              const sellerIdStr = (t.seller?._id || t.seller || t._doc?.seller)?.toString();
+              item.seller = sellerIdStr ? usersDb.find((u) => u._id.toString() === sellerIdStr) || item.seller : item.seller;
             }
             if (field === "product") {
               item.product = mockProduct;
@@ -199,6 +249,108 @@ describe("CampusX Feature #19: Ratings & Reviews Test Suite", () => {
         catch: (fn) => Promise.resolve(results).catch(fn),
       };
       return chain;
+    };
+
+    Transaction.findOne = (query) => {
+      let found = transactionsDb.find((t) => {
+        const prod = t.product || t._doc?.product;
+        const buyer = t.buyer || t._doc?.buyer;
+        const status = t.status || t._doc?.status;
+        let match = true;
+        if (query?.product && (prod?._id || prod).toString() !== query.product.toString()) match = false;
+        if (query?.buyer && (buyer?._id || buyer).toString() !== query.buyer.toString()) match = false;
+        if (query?.status && status !== query.status) match = false;
+        if (query?.$or) {
+          const seller = t.seller || t._doc?.seller;
+          const satisfiesOr = query.$or.some((cond) =>
+            (cond.buyer && (buyer?._id || buyer).toString() === cond.buyer.toString()) ||
+            (cond.seller && (seller?._id || seller).toString() === cond.seller.toString())
+          );
+          if (!satisfiesOr) match = false;
+        }
+        return match;
+      });
+
+      const chain = {
+        populate: (field) => {
+          if (found) {
+            const item = found.toObject ? found.toObject() : (found._doc ? { ...found._doc } : { ...found });
+            if (field === "buyer") {
+              const buyerIdStr = (item.buyer?._id || item.buyer)?.toString();
+              item.buyer = buyerIdStr ? usersDb.find((u) => u._id.toString() === buyerIdStr) || item.buyer : item.buyer;
+            }
+            if (field === "seller") {
+              const sellerIdStr = (item.seller?._id || item.seller)?.toString();
+              item.seller = sellerIdStr ? usersDb.find((u) => u._id.toString() === sellerIdStr) || item.seller : item.seller;
+            }
+            if (field === "product") {
+              item.product = mockProduct;
+            }
+            found = item;
+          }
+          return chain;
+        },
+        then: (fn) => Promise.resolve(found || null).then(fn),
+        catch: (fn) => Promise.resolve(found || null).catch(fn),
+      };
+      return chain;
+    };
+
+    Transaction.prototype.save = async function () {
+      this._id = this._id || new mongoose.Types.ObjectId();
+      this.createdAt = this.createdAt || new Date();
+      const existingIdx = transactionsDb.findIndex((t) => t._id.toString() === this._id.toString());
+      if (existingIdx >= 0) {
+        transactionsDb[existingIdx] = this;
+      } else {
+        transactionsDb.push(this);
+      }
+      return this;
+    };
+
+    Transaction.prototype.populate = async function (field) {
+      if (field === "buyer") {
+        const buyerIdStr = (this.buyer?._id || this.buyer)?.toString();
+        this.buyer = buyerIdStr ? usersDb.find((u) => u._id.toString() === buyerIdStr) || this.buyer : this.buyer;
+      }
+      if (field === "seller") {
+        const sellerIdStr = (this.seller?._id || this.seller)?.toString();
+        this.seller = sellerIdStr ? usersDb.find((u) => u._id.toString() === sellerIdStr) || this.seller : this.seller;
+      }
+      if (field === "product") {
+        this.product = mockProduct;
+      }
+      return this;
+    };
+
+    Transaction.updateMany = async (query, update) => {
+      let count = 0;
+      transactionsDb.forEach((t) => {
+        let match = true;
+        if (query?.product && t.product.toString() !== query.product.toString()) match = false;
+        if (query?._id?.$ne && t._id.toString() === query._id.$ne.toString()) match = false;
+        if (query?.status && t.status !== query.status) match = false;
+        if (match) {
+          if (update?.status) t.status = update.status;
+          if (update?.notes) t.notes = update.notes;
+          count++;
+        }
+      });
+      return { modifiedCount: count };
+    };
+
+    Transaction.countDocuments = async (query) => {
+      return transactionsDb.filter((t) => {
+        let match = true;
+        if (query?.buyer && t.buyer.toString() !== query.buyer.toString()) match = false;
+        if (query?.status && t.status !== query.status) match = false;
+        return match;
+      }).length;
+    };
+
+    mockProduct.status = "Available";
+    mockProduct.save = async function () {
+      return this;
     };
 
     // Mock Review queries
@@ -708,4 +860,421 @@ describe("CampusX Feature #19: Ratings & Reviews Test Suite", () => {
       assert.equal(mod.status, "APPROVED");
     });
   });
-});
+
+  // ==========================================
+  // 7. END-TO-END PURCHASE → TRANSACTION → TWO-WAY REVIEW FLOW
+  // ==========================================
+  describe("7. End-to-End Purchase → Transaction → Two-Way Review Flow", () => {
+    it("should allow buyer to send purchase request (PENDING), prevent buyer from approving, and complete deal when seller approves", async () => {
+      mockProduct.status = "Available";
+      transactionsDb = [];
+      reviewsDb = [];
+
+      // 1. Buyer creates purchase request
+      const res = await fetch(`${baseUrl}/api/transactions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `token=${buyerToken}`,
+        },
+        body: JSON.stringify({
+          productId: mockProductId.toString(),
+          amount: 800,
+          meetupLocation: "Central Library",
+          notes: "Will meet at 5 PM",
+        }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 201);
+      assert.equal(body.success, true);
+      assert.equal(body.data.status, "PENDING");
+      assert.equal((body.data.buyer?._id || body.data.buyer).toString(), mockBuyerId.toString());
+      assert.equal((body.data.seller?._id || body.data.seller).toString(), mockSellerId.toString());
+      assert.equal(mockProduct.status, "Available");
+
+      const txnId = body.data._id;
+
+      // 2. Buyer attempts to approve own request -> rejected with 403
+      const buyerApproveRes = await fetch(`${baseUrl}/api/transactions/${txnId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `token=${buyerToken}`,
+        },
+        body: JSON.stringify({
+          status: "COMPLETED",
+        }),
+      });
+      assert.equal(buyerApproveRes.status, 403);
+
+      // 3. Seller approves the purchase request -> completed & product marked Sold
+      const sellerApproveRes = await fetch(`${baseUrl}/api/transactions/${txnId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `token=${sellerToken}`,
+        },
+        body: JSON.stringify({
+          status: "COMPLETED",
+        }),
+      });
+      const sellerApproveBody = await sellerApproveRes.json();
+      assert.equal(sellerApproveRes.status, 200);
+      assert.equal(sellerApproveBody.data.status, "COMPLETED");
+      assert.equal(mockProduct.status, "Sold");
+    });
+
+    it("should reject purchase when buyer attempts to buy their own product", async () => {
+      mockProduct.status = "Available";
+      const res = await fetch(`${baseUrl}/api/transactions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `token=${sellerToken}`, // Seller owns mockProduct
+        },
+        body: JSON.stringify({
+          productId: mockProductId.toString(),
+        }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 400);
+      assert.match(body.message, /cannot purchase your own product/i);
+    });
+
+    it("should reject purchase when product is already marked Sold", async () => {
+      mockProduct.status = "Sold";
+      const res = await fetch(`${baseUrl}/api/transactions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `token=${buyerToken}`,
+        },
+        body: JSON.stringify({
+          productId: mockProductId.toString(),
+        }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 400);
+      assert.match(body.message, /already sold/i);
+    });
+
+    it("should return transaction and review status via GET /api/transactions/product/:productId", async () => {
+      const newTxnId = new mongoose.Types.ObjectId();
+      transactionsDb = [
+        {
+          _id: newTxnId,
+          buyer: mockBuyerId,
+          seller: mockSellerId,
+          product: mockProductId,
+          amount: 800,
+          status: "COMPLETED",
+          completedAt: new Date(),
+        },
+      ];
+      reviewsDb = [];
+
+      const res = await fetch(`${baseUrl}/api/transactions/product/${mockProductId}`, {
+        headers: {
+          Cookie: `token=${buyerToken}`,
+        },
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 200);
+      assert.equal(body.success, true);
+      assert.equal(body.data.isBuyer, true);
+      assert.equal(body.data.targetRole, "seller");
+      assert.equal(body.data.hasReviewed, false);
+    });
+
+    it("should execute complete two-way review: buyer rates seller (5★) and seller rates buyer (4★)", async () => {
+      const e2eTxnId = new mongoose.Types.ObjectId();
+      transactionsDb = [
+        {
+          _id: e2eTxnId,
+          buyer: mockBuyerId,
+          seller: mockSellerId,
+          product: mockProductId,
+          amount: 800,
+          status: "COMPLETED",
+          completedAt: new Date(),
+        },
+      ];
+      reviewsDb = [];
+
+      // 1. Buyer rates Seller 5 stars
+      const buyerRes = await fetch(`${baseUrl}/api/reviews`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `token=${buyerToken}`,
+        },
+        body: JSON.stringify({
+          transactionId: e2eTxnId.toString(),
+          rating: 5,
+          review: "Excellent seller, item was perfect!",
+        }),
+      });
+      const buyerBody = await buyerRes.json();
+      assert.equal(buyerRes.status, 201);
+      assert.equal(buyerBody.data.role, "seller");
+      assert.equal(buyerBody.data.rating, 5);
+
+      // Verify seller's sellerRating updated
+      const sellerUser = usersDb.find((u) => u._id.toString() === mockSellerId.toString());
+      assert.equal(sellerUser.sellerRating, 5);
+      assert.equal(sellerUser.sellerReviewCount, 1);
+
+      // 2. Seller rates Buyer 4 stars
+      const sellerRes = await fetch(`${baseUrl}/api/reviews`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `token=${sellerToken}`,
+        },
+        body: JSON.stringify({
+          transactionId: e2eTxnId.toString(),
+          rating: 4,
+          review: "Smooth meetup and prompt payment.",
+        }),
+      });
+      const sellerBody = await sellerRes.json();
+      assert.equal(sellerRes.status, 201);
+      assert.equal(sellerBody.data.role, "buyer");
+      assert.equal(sellerBody.data.rating, 4);
+
+      // Verify buyer's buyerRating updated
+      const buyerUser = usersDb.find((u) => u._id.toString() === mockBuyerId.toString());
+      assert.equal(buyerUser.buyerRating, 4);
+      assert.equal(buyerUser.buyerReviewCount, 1);
+
+      // 3. Buyer tries to review seller again on same transaction -> reject with 400
+      const duplicateBuyerRes = await fetch(`${baseUrl}/api/reviews`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `token=${buyerToken}`,
+        },
+        body: JSON.stringify({
+          transactionId: e2eTxnId.toString(),
+          rating: 5,
+        }),
+      });
+      assert.equal(duplicateBuyerRes.status, 400);
+
+      // 4. Seller tries to review buyer again on same transaction -> reject with 400
+      const duplicateSellerRes = await fetch(`${baseUrl}/api/reviews`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `token=${sellerToken}`,
+        },
+        body: JSON.stringify({
+          transactionId: e2eTxnId.toString(),
+          rating: 4,
+        }),
+      });
+      assert.equal(duplicateSellerRes.status, 400);
+      });
+    });
+
+    describe("8. Multi-Bid Offers & Acceptance / Profile 'No. of Buys' Metric", () => {
+      it("should execute full multi-bid flow: multiple buyers submit bids, update bids, seller inspects sorted offers, accepts preferred bid, auto-cancels competing bids, and updates boughtCount in profile", async () => {
+        // Clear previous test state
+        mockProduct.status = "Available";
+        transactionsDb = [];
+
+        // 1. Buyer 1 submits bid with amount: 700
+        const res1 = await fetch(`${baseUrl}/api/transactions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${buyerToken}`,
+          },
+          body: JSON.stringify({
+            productId: mockProductId.toString(),
+            amount: 700,
+            meetupLocation: "NIT KKR Admin Block",
+            notes: "I can pick up today at 5pm",
+          }),
+        });
+        const body1 = await res1.json();
+        assert.equal(res1.status, 201);
+        assert.equal(body1.success, true);
+        assert.equal(body1.data.amount, 700);
+        assert.equal(body1.data.status, "PENDING");
+        const buyer1TxnId = body1.data._id;
+
+        // 2. Buyer 2 (Stranger) submits higher bid with amount: 850
+        const res2 = await fetch(`${baseUrl}/api/transactions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${strangerToken}`,
+          },
+          body: JSON.stringify({
+            productId: mockProductId.toString(),
+            amount: 850,
+            meetupLocation: "NIT KKR Sports Complex",
+            notes: "Ready with cash immediately",
+          }),
+        });
+        const body2 = await res2.json();
+        assert.equal(res2.status, 201);
+        assert.equal(body2.success, true);
+        assert.equal(body2.data.amount, 850);
+        assert.equal(body2.data.status, "PENDING");
+        const buyer2TxnId = body2.data._id;
+
+        // 3. Buyer 1 updates their existing bid from 700 to 750
+        const updateRes = await fetch(`${baseUrl}/api/transactions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${buyerToken}`,
+          },
+          body: JSON.stringify({
+            productId: mockProductId.toString(),
+            amount: 750,
+            meetupLocation: "NIT KKR Library",
+            notes: "Updated my offer to 750",
+          }),
+        });
+        const updateBody = await updateRes.json();
+        assert.equal(updateRes.status, 200);
+        assert.equal(updateBody.success, true);
+        assert.equal(updateBody.data.amount, 750);
+        assert.equal(updateBody.data._id.toString(), buyer1TxnId.toString());
+
+        // 4. Seller inspects incoming bids via GET /api/transactions/product/:productId
+        const getBidsRes = await fetch(`${baseUrl}/api/transactions/product/${mockProductId}`, {
+          method: "GET",
+          headers: {
+            Cookie: `token=${sellerToken}`,
+          },
+        });
+        const getBidsBody = await getBidsRes.json();
+        assert.equal(getBidsRes.status, 200);
+        assert.equal(getBidsBody.success, true);
+        assert.equal(getBidsBody.data.isSeller, true);
+        assert(Array.isArray(getBidsBody.data.pendingRequests));
+        assert.equal(getBidsBody.data.pendingRequests.length, 2);
+        // Sorted highest bid first: 850 (Buyer 2), then 750 (Buyer 1)
+        assert.equal(getBidsBody.data.pendingRequests[0].amount, 850);
+        assert.equal(getBidsBody.data.pendingRequests[1].amount, 750);
+
+        // 5. Seller accepts Buyer 2's offer (850)
+        const acceptRes = await fetch(`${baseUrl}/api/transactions/${buyer2TxnId}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${sellerToken}`,
+          },
+          body: JSON.stringify({
+            status: "COMPLETED",
+          }),
+        });
+        const acceptBody = await acceptRes.json();
+        assert.equal(acceptRes.status, 200);
+        assert.equal(acceptBody.success, true);
+        assert.equal(acceptBody.data.status, "COMPLETED");
+        assert.equal(acceptBody.data.amount, 850);
+
+        // Product status must be updated to Sold
+        assert.equal(mockProduct.status, "Sold");
+
+        // Competing bid from Buyer 1 should now be auto-CANCELLED with note
+        const cancelledTxn = transactionsDb.find((t) => t._id.toString() === buyer1TxnId.toString());
+        assert.equal(cancelledTxn.status, "CANCELLED");
+        assert.equal(cancelledTxn.notes, "Product sold to another buyer");
+
+        // 6. Verify profile stats: boughtCount
+        // Buyer 2 (Stranger) has boughtCount = 1
+        const resBuyer2 = await fetch(`${baseUrl}/api/products/user/me`, {
+          method: "GET",
+          headers: {
+            Cookie: `token=${strangerToken}`,
+          },
+        });
+        const bodyBuyer2 = await resBuyer2.json();
+        assert.equal(resBuyer2.status, 200);
+        assert.equal(bodyBuyer2.success, true);
+        assert.equal(bodyBuyer2.stats.boughtCount, 1);
+
+        // Buyer 1 (whose bid was cancelled) has boughtCount = 0
+        const resBuyer1 = await fetch(`${baseUrl}/api/products/user/me`, {
+          method: "GET",
+          headers: {
+            Cookie: `token=${buyerToken}`,
+          },
+        });
+        const bodyBuyer1 = await resBuyer1.json();
+        assert.equal(resBuyer1.status, 200);
+        assert.equal(bodyBuyer1.success, true);
+        assert.equal(bodyBuyer1.stats.boughtCount, 0);
+      });
+
+      it("should allow seller to decline a specific bid while leaving other pending bids active", async () => {
+        mockProduct.status = "Available";
+        transactionsDb = [];
+
+        // Buyer 1 bids 600
+        const res1 = await fetch(`${baseUrl}/api/transactions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${buyerToken}`,
+          },
+          body: JSON.stringify({
+            productId: mockProductId.toString(),
+            amount: 600,
+            meetupLocation: "Hostel 1",
+          }),
+        });
+        const body1 = await res1.json();
+        const buyer1TxnId = body1.data._id;
+
+        // Buyer 2 bids 700
+        const res2 = await fetch(`${baseUrl}/api/transactions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${strangerToken}`,
+          },
+          body: JSON.stringify({
+            productId: mockProductId.toString(),
+            amount: 700,
+            meetupLocation: "Hostel 2",
+          }),
+        });
+        const body2 = await res2.json();
+        const buyer2TxnId = body2.data._id;
+
+        // Seller declines Buyer 1's bid (status: CANCELLED)
+        const declineRes = await fetch(`${baseUrl}/api/transactions/${buyer1TxnId}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${sellerToken}`,
+          },
+          body: JSON.stringify({
+            status: "CANCELLED",
+            notes: "Bid is too low",
+          }),
+        });
+        const declineBody = await declineRes.json();
+        assert.equal(declineRes.status, 200);
+        assert.equal(declineBody.data.status, "CANCELLED");
+
+        // Product is STILL Available
+        assert.equal(mockProduct.status, "Available");
+
+        // Buyer 2's bid is STILL PENDING
+        const remainingTxn = transactionsDb.find((t) => t._id.toString() === buyer2TxnId.toString());
+        assert.equal(remainingTxn.status, "PENDING");
+      });
+    });
+  });

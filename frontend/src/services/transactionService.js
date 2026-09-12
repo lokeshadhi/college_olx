@@ -36,3 +36,13 @@ export const updateTransactionStatus = async (id, payload) => {
   const { data } = await api.patch(`/transactions/${id}/status`, payload);
   return data;
 };
+
+/**
+ * Get current user's transaction on a product (if any) and review status
+ * @param {string} productId
+ */
+export const getProductTransaction = async (productId) => {
+  const { data } = await api.get(`/transactions/product/${productId}`);
+  return data;
+};
+

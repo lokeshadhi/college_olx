@@ -21,12 +21,12 @@ const Profile = () => {
   });
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
-const [uploadingImage, setUploadingImage] = useState(false);
-  const [stats, setStats] = useState({ postedCount: 0, soldCount: 0 });
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [stats, setStats] = useState({ postedCount: 0, soldCount: 0, boughtCount: 0 });
 
   useEffect(() => {
     getMyProducts()
-      .then((res) => setStats(res.stats))
+      .then((res) => setStats(res.stats || { postedCount: 0, soldCount: 0, boughtCount: 0 }))
       .catch(() => {});
   }, []);
 
@@ -198,14 +198,30 @@ const [uploadingImage, setUploadingImage] = useState(false);
               </div>
             )}
             <div className="profile-stats">
-              <div>
-                <div className="profile-stat-num">{stats.postedCount}</div>
-                <div className="profile-stat-label">Posted</div>
-              </div>
-              <div>
-                <div className="profile-stat-num">{stats.soldCount}</div>
+              <Link
+                to="/my-products"
+                style={{ textDecoration: "none", color: "inherit", display: "block" }}
+                title="View your posted listings"
+              >
+                <div className="profile-stat-num">{stats.postedCount || 0}</div>
+                <div className="profile-stat-label">Listings</div>
+              </Link>
+              <Link
+                to="/my-transactions?tab=sales"
+                style={{ textDecoration: "none", color: "inherit", display: "block" }}
+                title="View your completed sales"
+              >
+                <div className="profile-stat-num">{stats.soldCount || 0}</div>
                 <div className="profile-stat-label">Sold</div>
-              </div>
+              </Link>
+              <Link
+                to="/my-transactions?tab=purchases"
+                style={{ textDecoration: "none", color: "inherit", display: "block" }}
+                title="View your approved buys"
+              >
+                <div className="profile-stat-num">{stats.boughtCount || 0}</div>
+                <div className="profile-stat-label">Buys</div>
+              </Link>
             </div>
 
             {/* Campus Reputation Breakdown */}
@@ -281,6 +297,25 @@ const [uploadingImage, setUploadingImage] = useState(false);
                   )}
                 </span>
               </div>
+            </div>
+
+            <div style={{ width: "100%", marginTop: "16px" }}>
+              <Link to="/my-transactions" style={{ textDecoration: "none", display: "block" }}>
+                <Button
+                  variant="outline"
+                  style={{
+                    width: "100%",
+                    padding: "7px 12px",
+                    fontSize: "0.82rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px",
+                  }}
+                >
+                  View All Transactions
+                </Button>
+              </Link>
             </div>
 
             <div style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", marginTop: "14px" }}>
