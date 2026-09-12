@@ -265,51 +265,131 @@ describe("CampusX Production Security Layer Test Suite", () => {
   // ==========================================
   // 5. SECURE PASSWORD RESET FLOW
   // ==========================================
-  describe("5. Cryptographic Password Reset Flow", () => {
+  // ==========================================
+  // 5. SECURE PASSWORD RESET OTP & AUTHORIZATION FLOW
+  // ==========================================
+  describe("5. Cryptographic Password Reset OTP Flow", () => {
     let resetUserRecord;
 
     beforeEach(() => {
       resetUserRecord = {
         _id: "66e01234567890abcdef7777",
-        email: "reset.target@college.edu",
+        name: "Test Student",
+        email: "20240101@nitkkr.ac.in",
         password: "OldHashedPassword",
         passwordResetToken: undefined,
         passwordResetExpires: undefined,
+        passwordResetOTPHash: undefined,
+        passwordResetOTPExpires: undefined,
+        passwordResetOTPAttempts: 0,
+        passwordResetVerifiedTokenHash: undefined,
+        passwordResetVerifiedTokenExpires: undefined,
         passwordChangedAt: undefined,
         failedLoginAttempts: 3,
         lockUntil: new Date(Date.now() + 10000),
-        createPasswordResetToken: function () {
+
+        createPasswordResetOTP: function () {
+          const otp = "123456";
+          this.passwordResetOTPHash = crypto.createHash("sha256").update(otp).digest("hex");
+          this.passwordResetOTPExpires = new Date(Date.now() + 10 * 60 * 1000);
+          this.passwordResetOTPAttempts = 0;
+          this.passwordResetVerifiedTokenHash = undefined;
+          this.passwordResetVerifiedTokenExpires = undefined;
+          return otp;
+        },
+
+        verifyPasswordResetOTP: function (candidateOTP) {
+          if (!candidateOTP || typeof candidateOTP !== "string") return false;
+          if (!this.passwordResetOTPHash) return false;
+          const candidateHash = crypto.createHash("sha256").update(candidateOTP.trim()).digest("hex");
+          try {
+            return crypto.timingSafeEqual(
+              Buffer.from(candidateHash, "hex"),
+              Buffer.from(this.passwordResetOTPHash, "hex")
+            );
+          } catch {
+            return false;
+          }
+        },
+
+        createPasswordResetAuthorization: function () {
           const resetToken = crypto.randomBytes(32).toString("hex");
-          this.passwordResetToken = crypto.createHash("sha256").update(resetToken).digest("hex");
-          this.passwordResetExpires = new Date(Date.now() + 15 * 60 * 1000);
+          this.passwordResetVerifiedTokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
+          this.passwordResetVerifiedTokenExpires = new Date(Date.now() + 15 * 60 * 1000);
+          this.passwordResetOTPHash = undefined;
+          this.passwordResetOTPExpires = undefined;
+          this.passwordResetOTPAttempts = 0;
           return resetToken;
         },
+
+        verifyPasswordResetAuthorization: function (candidateToken) {
+          if (!candidateToken || typeof candidateToken !== "string") return false;
+          if (!this.passwordResetVerifiedTokenHash) return false;
+          const candidateHash = crypto.createHash("sha256").update(candidateToken.trim()).digest("hex");
+          try {
+            return crypto.timingSafeEqual(
+              Buffer.from(candidateHash, "hex"),
+              Buffer.from(this.passwordResetVerifiedTokenHash, "hex")
+            );
+          } catch {
+            return false;
+          }
+        },
+
         save: async function () {
           return this;
         },
       };
 
-      User.findOne = async (query) => {
-        if (query.email === resetUserRecord.email) {
-          return resetUserRecord;
-        }
-        if (query.passwordResetToken && query.passwordResetExpires) {
-          if (
-            query.passwordResetToken === resetUserRecord.passwordResetToken &&
-            resetUserRecord.passwordResetExpires > Date.now()
-          ) {
-            return resetUserRecord;
+      User.findOne = (query) => {
+        let match = null;
+        if (query?.email === resetUserRecord.email) {
+          match = resetUserRecord;
+        } else if (query?.$or) {
+          for (const condition of query.$or) {
+            if (
+              condition.passwordResetVerifiedTokenHash &&
+              condition.passwordResetVerifiedTokenHash === resetUserRecord.passwordResetVerifiedTokenHash &&
+              resetUserRecord.passwordResetVerifiedTokenExpires > Date.now()
+            ) {
+              match = resetUserRecord;
+              break;
+            }
+            if (
+              condition.passwordResetToken &&
+              condition.passwordResetToken === resetUserRecord.passwordResetToken &&
+              resetUserRecord.passwordResetExpires > Date.now()
+            ) {
+              match = resetUserRecord;
+              break;
+            }
           }
         }
-        return null;
+        return {
+          select: () => Promise.resolve(match),
+          then: (fn) => Promise.resolve(match).then(fn),
+          catch: (fn) => Promise.resolve(match).catch(fn),
+        };
       };
+    });
+
+    it("should reject invalid email format with 400", async () => {
+      const res = await fetch(`${baseUrl}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "invalid-email@gmail.com" }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 400);
+      assert.equal(body.success, false);
     });
 
     it("should return generic 200 for nonexistent email preventing account enumeration", async () => {
       const res = await fetch(`${baseUrl}/api/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: "doesnotexist@college.edu" }),
+        body: JSON.stringify({ email: "999999@nitkkr.ac.in" }),
       });
 
       const body = await res.json();
@@ -317,27 +397,86 @@ describe("CampusX Production Security Layer Test Suite", () => {
       assert.ok(body.message.includes("instructions have been sent"));
     });
 
-    it("should generate SHA-256 hashed token with 15-minute expiry on valid request", async () => {
+    it("should generate 6-digit OTP and store SHA-256 hash on valid request", async () => {
       const res = await fetch(`${baseUrl}/api/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: "reset.target@college.edu" }),
+        body: JSON.stringify({ email: "20240101@nitkkr.ac.in" }),
       });
 
       const body = await res.json();
       assert.equal(res.status, 200);
-      assert.ok(resetUserRecord.passwordResetToken);
-      assert.ok(resetUserRecord.passwordResetExpires > Date.now());
-      assert.ok(body.debugToken, "Test mode returns debugToken for automated testing");
+      assert.ok(resetUserRecord.passwordResetOTPHash);
+      assert.ok(resetUserRecord.passwordResetOTPExpires > Date.now());
+      assert.equal(body.debugOtp, "123456");
     });
 
-    it("should successfully reset password with valid token and clear reset metadata", async () => {
-      const rawToken = resetUserRecord.createPasswordResetToken();
+    it("should reject incorrect OTP with 400 and increment attempts", async () => {
+      resetUserRecord.createPasswordResetOTP();
 
-      const res = await fetch(`${baseUrl}/api/auth/reset-password/${rawToken}`, {
+      const res = await fetch(`${baseUrl}/api/auth/verify-password-reset-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          email: "20240101@nitkkr.ac.in",
+          otp: "000000",
+        }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 400);
+      assert.equal(body.success, false);
+      assert.equal(resetUserRecord.passwordResetOTPAttempts, 1);
+    });
+
+    it("should lock out and invalidate OTP after 5 consecutive failed attempts", async () => {
+      resetUserRecord.createPasswordResetOTP();
+      resetUserRecord.passwordResetOTPAttempts = 5;
+
+      const res = await fetch(`${baseUrl}/api/auth/verify-password-reset-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "20240101@nitkkr.ac.in",
+          otp: "123456",
+        }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 400);
+      assert.ok(body.message.includes("Too many failed attempts"));
+      assert.equal(resetUserRecord.passwordResetOTPHash, undefined);
+    });
+
+    it("should successfully verify OTP and return temporary single-use reset authorization token", async () => {
+      resetUserRecord.createPasswordResetOTP();
+
+      const res = await fetch(`${baseUrl}/api/auth/verify-password-reset-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "20240101@nitkkr.ac.in",
+          otp: "123456",
+        }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 200);
+      assert.equal(body.success, true);
+      assert.ok(body.resetToken, "Response includes single-use reset authorization token");
+      assert.ok(resetUserRecord.passwordResetVerifiedTokenHash);
+      assert.ok(resetUserRecord.passwordResetVerifiedTokenExpires > Date.now());
+      assert.equal(resetUserRecord.passwordResetOTPHash, undefined);
+    });
+
+    it("should successfully reset password with valid authorization token and clear metadata", async () => {
+      const authorizationToken = resetUserRecord.createPasswordResetAuthorization();
+
+      const res = await fetch(`${baseUrl}/api/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resetToken: authorizationToken,
           password: "BrandNewSecureP@ss2026",
           confirmPassword: "BrandNewSecureP@ss2026",
         }),
@@ -346,18 +485,20 @@ describe("CampusX Production Security Layer Test Suite", () => {
       const body = await res.json();
       assert.equal(res.status, 200);
       assert.equal(body.success, true);
-      assert.equal(resetUserRecord.passwordResetToken, undefined);
-      assert.equal(resetUserRecord.passwordResetExpires, undefined);
+      assert.equal(resetUserRecord.passwordResetVerifiedTokenHash, undefined);
+      assert.equal(resetUserRecord.passwordResetVerifiedTokenExpires, undefined);
+      assert.equal(resetUserRecord.passwordResetOTPHash, undefined);
       assert.equal(resetUserRecord.failedLoginAttempts, 0);
       assert.ok(!resetUserRecord.lockUntil);
       assert.ok(resetUserRecord.passwordChangedAt);
     });
 
-    it("should reject already-used or expired reset tokens", async () => {
-      const res = await fetch(`${baseUrl}/api/auth/reset-password/expired_or_invalid_raw_token_xyz`, {
+    it("should reject already-used or expired reset authorization tokens", async () => {
+      const res = await fetch(`${baseUrl}/api/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          resetToken: "invalid_or_already_used_authorization_token_abc",
           password: "BrandNewSecureP@ss2026",
           confirmPassword: "BrandNewSecureP@ss2026",
         }),

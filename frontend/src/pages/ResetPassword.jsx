@@ -1,13 +1,20 @@
 import { useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import toast from "react-hot-toast";
+import { FiShield, FiAlertTriangle } from "react-icons/fi";
 import MainLayout from "../layouts/MainLayout.jsx";
 import Button from "../components/Button.jsx";
 import { resetPassword } from "../services/authService.js";
 
 const ResetPassword = () => {
   const { token } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
+
+  // Retrieve authorization token passed from OTP verification or URL params/search
+  const searchParams = new URLSearchParams(location.search);
+  const resetToken = location.state?.resetToken || token || searchParams.get("token") || "";
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,6 +30,12 @@ const ResetPassword = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!resetToken) {
+      toast.error("Missing reset authorization. Please request a new code.");
+      navigate("/forgot-password");
+      return;
+    }
+
     if (password !== confirmPassword) {
       toast.error("Passwords do not match");
       return;
@@ -35,15 +48,60 @@ const ResetPassword = () => {
 
     setLoading(true);
     try {
-      const res = await resetPassword(token, password, confirmPassword);
-      toast.success(res.message || "Password reset successfully!");
+      const res = await resetPassword({
+        resetToken,
+        password,
+        confirmPassword,
+      });
+      toast.success(res.message || "Password reset successfully! Please log in.");
       navigate("/login");
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error.message || "Failed to reset password. Please request a new code.");
     } finally {
       setLoading(false);
     }
   };
+
+  if (!resetToken) {
+    return (
+      <MainLayout>
+        <div className="auth-shell">
+          <div className="auth-card" style={{ maxWidth: "480px", textAlign: "center" }}>
+            <div
+              style={{
+                width: "56px",
+                height: "56px",
+                borderRadius: "50%",
+                background: "#FEF2F2",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#DC2626",
+                fontSize: "26px",
+                marginBottom: "16px",
+              }}
+            >
+              <FiAlertTriangle />
+            </div>
+            <h1 style={{ fontSize: "1.5rem", fontWeight: 700, margin: "0 0 8px", color: "var(--color-ink)" }}>
+              Verification Required
+            </h1>
+            <p style={{ fontSize: "0.92rem", color: "var(--color-text-muted)", marginBottom: "24px" }}>
+              To reset your password, you must first verify your NIT Kurukshetra college email with a 6-digit code.
+            </p>
+            <Link to="/forgot-password" className="btn btn-primary" style={{ display: "inline-block", marginBottom: "12px", width: "100%" }}>
+              Request Verification Code
+            </Link>
+            <div>
+              <Link to="/login" className="btn btn-outline" style={{ display: "inline-block", width: "100%" }}>
+                Back to Login
+              </Link>
+            </div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>

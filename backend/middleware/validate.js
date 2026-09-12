@@ -90,10 +90,59 @@ export const loginRules = [
 ];
 
 export const forgotPasswordRules = [
-  body("email").trim().isEmail().withMessage("A valid college email is required"),
+  body("email")
+    .trim()
+    .notEmpty()
+    .withMessage("College email is required")
+    .custom((val) => {
+      const error = getCollegeEmailValidationError(val);
+      if (error) {
+        throw new Error(error);
+      }
+      return true;
+    }),
+];
+
+export const verifyPasswordResetOtpRules = [
+  body("email")
+    .trim()
+    .notEmpty()
+    .withMessage("College email is required")
+    .custom((val) => {
+      const error = getCollegeEmailValidationError(val);
+      if (error) {
+        throw new Error(error);
+      }
+      return true;
+    }),
+  body("otp")
+    .trim()
+    .notEmpty()
+    .withMessage("Password reset code is required")
+    .matches(/^[0-9]{6}$/)
+    .withMessage("Password reset code must be exactly 6 digits"),
+];
+
+export const resendPasswordResetOtpRules = [
+  body("email")
+    .trim()
+    .notEmpty()
+    .withMessage("College email is required")
+    .custom((val) => {
+      const error = getCollegeEmailValidationError(val);
+      if (error) {
+        throw new Error(error);
+      }
+      return true;
+    }),
 ];
 
 export const resetPasswordRules = [
+  body("resetToken")
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage("Password reset authorization token is required"),
   body("password")
     .matches(passwordComplexityRegex)
     .withMessage(

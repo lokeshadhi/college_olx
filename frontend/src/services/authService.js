@@ -39,8 +39,33 @@ export const forgotPassword = async (email) => {
   return data;
 };
 
-export const resetPassword = async (token, password, confirmPassword) => {
-  const { data } = await api.post(`/auth/reset-password/${token}`, {
+export const verifyPasswordResetOTP = async ({ email, otp }) => {
+  const { data } = await api.post("/auth/verify-password-reset-otp", { email, otp });
+  return data;
+};
+
+export const resendPasswordResetOTP = async (email) => {
+  const { data } = await api.post("/auth/resend-password-reset-otp", { email });
+  return data;
+};
+
+export const resetPassword = async (arg1, arg2, arg3) => {
+  let resetToken;
+  let password;
+  let confirmPassword;
+
+  if (typeof arg1 === "object" && arg1 !== null) {
+    resetToken = arg1.resetToken;
+    password = arg1.password;
+    confirmPassword = arg1.confirmPassword;
+  } else {
+    resetToken = arg1;
+    password = arg2;
+    confirmPassword = arg3;
+  }
+
+  const { data } = await api.post("/auth/reset-password", {
+    resetToken,
     password,
     confirmPassword,
   });

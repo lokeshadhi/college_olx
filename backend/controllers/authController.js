@@ -4,7 +4,7 @@ import User from "../models/User.js";
 import generateToken from "../utils/generateToken.js";
 import { logSecurityEvent, SECURITY_EVENTS } from "../utils/securityLogger.js";
 import { normalizeEmail, isValidCollegeEmail } from "../utils/emailValidator.js";
-import { sendVerificationOTP } from "../services/emailService.js";
+import { sendVerificationOTP, sendPasswordResetOTP } from "../services/emailService.js";
 
 // Dummy hash for constant-time comparison when email is not found
 const DUMMY_HASH = "$2a$10$abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmno";
@@ -394,34 +394,48 @@ export const logout = async (req, res) => {
   res.status(200).json({ success: true, message: "Logged out successfully" });
 };
 
-// @desc    Request password reset token
+// @desc    Request 6-digit password reset OTP
 // @route   POST /api/auth/forgot-password
 // @access  Public
 export const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = normalizeEmail(email);
 
-    let resetToken = null;
+    if (!isValidCollegeEmail(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please use a valid NIT Kurukshetra student email such as 123456@nitkkr.ac.in.",
+      });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail }).select(
+      "+passwordResetOTPHash +passwordResetOTPExpires +passwordResetOTPAttempts"
+    );
+
+    let otp = null;
     if (user) {
-      resetToken = user.createPasswordResetToken();
+      otp = user.createPasswordResetOTP();
       await user.save({ validateBeforeSave: false });
 
       logSecurityEvent(SECURITY_EVENTS.PASSWORD_RESET_REQUESTED, {
         req,
         userId: user._id,
+        metadata: { action: "password_reset_otp_generated" },
       });
 
-      const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
-      const resetLink = `${clientUrl}/reset-password/${resetToken}`;
-
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`[PASSWORD RESET LINK for ${user.email}]: ${resetLink}`);
-      }
+      // Send 6-digit OTP using existing Brevo HTTPS email service
+      await sendPasswordResetOTP({
+        email: user.email,
+        name: user.name,
+        otp,
+      }).catch((err) => {
+        console.error("[ForgotPassword] Failed to dispatch Brevo reset email:", err.message);
+      });
     } else {
       logSecurityEvent(SECURITY_EVENTS.PASSWORD_RESET_REQUESTED, {
         req,
-        metadata: { emailAttempted: email.toLowerCase(), userFound: false },
+        metadata: { emailAttempted: normalizedEmail, userFound: false },
       });
     }
 
@@ -431,9 +445,9 @@ export const forgotPassword = async (req, res, next) => {
       message: "If an account exists for this email, password reset instructions have been sent.",
     };
 
-    // Include debugToken in development and test environments to facilitate automated verification
-    if (process.env.NODE_ENV !== "production" && resetToken) {
-      responsePayload.debugToken = resetToken;
+    // Include debugOtp in development and test environments for automated testing
+    if (process.env.NODE_ENV !== "production" && otp) {
+      responsePayload.debugOtp = otp;
     }
 
     return res.status(200).json(responsePayload);
@@ -442,21 +456,201 @@ export const forgotPassword = async (req, res, next) => {
   }
 };
 
-// @desc    Reset password using cryptographically secure token
-// @route   POST /api/auth/reset-password/:token
+// @desc    Verify 6-digit password reset OTP and receive temporary single-use reset authorization token
+// @route   POST /api/auth/verify-password-reset-otp
+// @access  Public
+export const verifyPasswordResetOTP = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!isValidCollegeEmail(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please use a valid NIT Kurukshetra student email such as 123456@nitkkr.ac.in.",
+      });
+    }
+
+    if (!otp || typeof otp !== "string" || !/^[0-9]{6}$/.test(otp.trim())) {
+      return res.status(400).json({
+        success: false,
+        message: "Password reset code must be exactly 6 digits.",
+      });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail }).select(
+      "+passwordResetOTPHash +passwordResetOTPExpires +passwordResetOTPAttempts +passwordResetVerifiedTokenHash +passwordResetVerifiedTokenExpires"
+    );
+
+    if (!user) {
+      logSecurityEvent(SECURITY_EVENTS.LOGIN_FAILED, {
+        req,
+        metadata: { reason: "Password reset OTP verification on non-existent email", email: normalizedEmail },
+      });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid verification request. Please request a new password reset code.",
+      });
+    }
+
+    // Check maximum failed attempts (5 maximum attempts per OTP session)
+    if ((user.passwordResetOTPAttempts || 0) >= 5) {
+      user.passwordResetOTPHash = undefined;
+      user.passwordResetOTPExpires = undefined;
+      user.passwordResetOTPAttempts = 0;
+      await user.save({ validateBeforeSave: false });
+
+      logSecurityEvent(SECURITY_EVENTS.RATE_LIMIT_EXCEEDED, {
+        req,
+        userId: user._id,
+        metadata: { reason: "Max password reset OTP attempts exceeded" },
+      });
+
+      return res.status(400).json({
+        success: false,
+        message: "Too many failed attempts. Please request a new password reset code.",
+      });
+    }
+
+    // Check expiration (10 minutes)
+    if (!user.passwordResetOTPExpires || user.passwordResetOTPExpires.getTime() < Date.now()) {
+      return res.status(400).json({
+        success: false,
+        message: "This password reset code has expired. Please request a new code.",
+      });
+    }
+
+    // Constant-time comparison
+    const isMatch = user.verifyPasswordResetOTP(otp);
+
+    if (!isMatch) {
+      user.passwordResetOTPAttempts = (user.passwordResetOTPAttempts || 0) + 1;
+      await user.save({ validateBeforeSave: false });
+
+      logSecurityEvent(SECURITY_EVENTS.LOGIN_FAILED, {
+        req,
+        userId: user._id,
+        metadata: { reason: "Incorrect password reset OTP", attempts: user.passwordResetOTPAttempts },
+      });
+
+      return res.status(400).json({
+        success: false,
+        message: "Invalid verification code.",
+      });
+    }
+
+    // Verification successful: issue temporary single-use reset authorization token
+    const resetToken = user.createPasswordResetAuthorization();
+    await user.save({ validateBeforeSave: false });
+
+    logSecurityEvent(SECURITY_EVENTS.PASSWORD_RESET_REQUESTED, {
+      req,
+      userId: user._id,
+      metadata: { action: "password_reset_otp_verified" },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset code verified successfully.",
+      resetToken,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Resend 6-digit password reset OTP
+// @route   POST /api/auth/resend-password-reset-otp
+// @access  Public
+export const resendPasswordResetOTP = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!isValidCollegeEmail(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please use a valid NIT Kurukshetra student email such as 123456@nitkkr.ac.in.",
+      });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail }).select(
+      "+passwordResetOTPHash +passwordResetOTPExpires +passwordResetOTPAttempts"
+    );
+
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: "If an account exists for this email, a new password reset code has been sent.",
+      });
+    }
+
+    // Invalidate prior OTP and generate fresh 10-minute OTP
+    const otp = user.createPasswordResetOTP();
+    await user.save({ validateBeforeSave: false });
+
+    await sendPasswordResetOTP({
+      email: user.email,
+      name: user.name,
+      otp,
+    }).catch((err) => {
+      console.error("[ResendPasswordResetOTP] Failed to dispatch Brevo reset email:", err.message);
+    });
+
+    logSecurityEvent(SECURITY_EVENTS.PASSWORD_RESET_REQUESTED, {
+      req,
+      userId: user._id,
+      metadata: { action: "resend_password_reset_otp" },
+    });
+
+    const responsePayload = {
+      success: true,
+      message: "A new password reset code has been sent to your college email.",
+    };
+
+    if (process.env.NODE_ENV !== "production") {
+      responsePayload.debugOtp = otp;
+    }
+
+    return res.status(200).json(responsePayload);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Reset password using cryptographically secure authorization token
+// @route   POST /api/auth/reset-password or POST /api/auth/reset-password/:token
 // @access  Public
 export const resetPassword = async (req, res, next) => {
   try {
-    const { token } = req.params;
+    const token = req.body?.resetToken || req.params?.token;
     const { password } = req.body;
 
-    // Hash the token provided in the URL to match the stored SHA-256 hash
-    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+    if (!token || typeof token !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Password reset authorization token is required.",
+      });
+    }
 
+    // Hash the token provided in the body or URL to match stored SHA-256 hash
+    const hashedToken = crypto.createHash("sha256").update(token.trim()).digest("hex");
+
+    // Look up user with active authorization token (or legacy reset token)
     const user = await User.findOne({
-      passwordResetToken: hashedToken,
-      passwordResetExpires: { $gt: Date.now() },
-    });
+      $or: [
+        {
+          passwordResetVerifiedTokenHash: hashedToken,
+          passwordResetVerifiedTokenExpires: { $gt: Date.now() },
+        },
+        {
+          passwordResetToken: hashedToken,
+          passwordResetExpires: { $gt: Date.now() },
+        },
+      ],
+    }).select(
+      "+passwordResetVerifiedTokenHash +passwordResetVerifiedTokenExpires +passwordResetToken +passwordResetExpires"
+    );
 
     if (!user) {
       return res.status(400).json({
@@ -465,10 +659,15 @@ export const resetPassword = async (req, res, next) => {
       });
     }
 
-    // Update password and invalidate the token
+    // Update password and invalidate all reset metadata
     user.password = password;
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
+    user.passwordResetOTPHash = undefined;
+    user.passwordResetOTPExpires = undefined;
+    user.passwordResetOTPAttempts = 0;
+    user.passwordResetVerifiedTokenHash = undefined;
+    user.passwordResetVerifiedTokenExpires = undefined;
     user.passwordChangedAt = new Date();
     user.failedLoginAttempts = 0;
     user.lockUntil = undefined;

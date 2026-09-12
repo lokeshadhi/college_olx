@@ -6,6 +6,8 @@ import {
   getProfile,
   updateProfile,
   forgotPassword,
+  verifyPasswordResetOTP,
+  resendPasswordResetOTP,
   resetPassword,
   verifyEmail,
   resendVerification,
@@ -15,6 +17,8 @@ import {
   registerRules,
   loginRules,
   forgotPasswordRules,
+  verifyPasswordResetOtpRules,
+  resendPasswordResetOtpRules,
   resetPasswordRules,
   verifyEmailRules,
   resendVerificationRules,
@@ -35,6 +39,9 @@ router.post("/verify-email", verifyEmailLimiter, verifyEmailRules, handleValidat
 router.post("/resend-verification", resendVerificationLimiter, resendVerificationRules, handleValidation, resendVerification);
 router.post("/login", authLimiter, loginRules, handleValidation, login);
 router.post("/forgot-password", passwordResetLimiter, forgotPasswordRules, handleValidation, forgotPassword);
+router.post("/verify-password-reset-otp", verifyEmailLimiter, verifyPasswordResetOtpRules, handleValidation, verifyPasswordResetOTP);
+router.post("/resend-password-reset-otp", resendVerificationLimiter, resendPasswordResetOtpRules, handleValidation, resendPasswordResetOTP);
+router.post("/reset-password", passwordResetLimiter, resetPasswordRules, handleValidation, resetPassword);
 router.post("/reset-password/:token", passwordResetLimiter, resetPasswordRules, handleValidation, resetPassword);
 
 // Authenticated session routes
