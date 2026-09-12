@@ -166,6 +166,9 @@ export const createProduct = async (req, res, next) => {
 
     res.status(201).json({ success: true, message: "Product listed successfully", data: product });
   } catch (error) {
+    console.error("CREATE PRODUCT ERROR:", error);
+    console.error("CREATE PRODUCT ERROR MESSAGE:", error?.message);
+    console.error("CREATE PRODUCT ERROR STACK:", error?.stack);
     next(error);
   }
 };
