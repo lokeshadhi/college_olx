@@ -20,10 +20,14 @@ const uploadToCloudinary = async (file, folder = "campusx/products") => {
 
     return result.secure_url;
   } catch (error) {
-    // Clean up temporary file even if Cloudinary fails
-    await fs.unlink(file.path).catch(() => {});
-    throw error;
-  }
+  console.error("CLOUDINARY UPLOAD ERROR:", error);
+  console.error("CLOUDINARY HTTP CODE:", error?.http_code);
+  console.error("CLOUDINARY ERROR MESSAGE:", error?.error?.message);
+  console.error("CLOUDINARY ERROR DETAILS:", JSON.stringify(error?.error));
+
+  await fs.unlink(file.path).catch(() => {});
+  throw error;
+}
 };
 export const getProducts = async (req, res, next) => {
   try {
