@@ -2,6 +2,8 @@ import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import Product from "../models/Product.js";
 import { aiChatSecurityService } from "../services/aiChatSecurityService.js";
+import cloudinary from "../config/cloudinary.js";
+import fs from "fs/promises";
 
 // @desc    Get all conversations for the authenticated user
 // @route   GET /api/chat/conversations
@@ -342,18 +344,32 @@ export const markMessagesAsRead = async (req, res, next) => {
 export const uploadChatImage = async (req, res, next) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: "No image file uploaded" });
+      return res.status(400).json({
+        success: false,
+        message: "No image file uploaded",
+      });
     }
+
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: "campusx/chat",
+      resource_type: "image",
+    });
+
+    // Delete temporary file
+    await fs.unlink(req.file.path).catch(() => {});
 
     res.status(200).json({
       success: true,
-      imageUrl: `/uploads/${req.file.filename}`,
+      imageUrl: result.secure_url,
     });
   } catch (error) {
+    if (req.file?.path) {
+      await fs.unlink(req.file.path).catch(() => {});
+    }
+
     next(error);
   }
 };
-
 // @desc    Generate AI Smart Replies for a conversation
 // @route   POST /api/chat/conversations/:conversationId/ai-smart-reply
 // @access  Private

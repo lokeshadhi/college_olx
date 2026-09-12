@@ -1,10 +1,30 @@
 import Product from "../models/Product.js";
 import { escapeRegex } from "../middleware/securitySanitizer.js";
 import { aiSecurityService } from "../services/aiSecurityService.js";
+import cloudinary from "../config/cloudinary.js";
+import fs from "fs/promises";
+
 
 // @desc    Get all products with search, filters, sorting and pagination
 // @route   GET /api/products
 // @access  Public
+const uploadToCloudinary = async (file, folder = "campusx/products") => {
+  try {
+    const result = await cloudinary.uploader.upload(file.path, {
+      folder,
+      resource_type: "image",
+    });
+
+    // Delete temporary file from Render/local disk
+    await fs.unlink(file.path).catch(() => {});
+
+    return result.secure_url;
+  } catch (error) {
+    // Clean up temporary file even if Cloudinary fails
+    await fs.unlink(file.path).catch(() => {});
+    throw error;
+  }
+};
 export const getProducts = async (req, res, next) => {
   try {
     const {
@@ -106,7 +126,11 @@ export const createProduct = async (req, res, next) => {
   try {
     const { title, description, category, price, condition, location } = req.body;
 
-    const images = (req.files || []).map((file) => `/uploads/${file.filename}`);
+    const images = await Promise.all(
+  (req.files || []).map((file) =>
+    uploadToCloudinary(file, "campusx/products")
+  )
+);
 
     // Intelligent AI security screening (non-blocking / fails open)
     const securityAssessment = await aiSecurityService.analyzeListingSecurity({
@@ -163,10 +187,15 @@ export const updateProduct = async (req, res, next) => {
       }
     });
 
-    if (req.files && req.files.length > 0) {
-      const newImages = req.files.map((file) => `/uploads/${file.filename}`);
-      product.images = [...product.images, ...newImages];
-    }
+  if (req.files && req.files.length > 0) {
+  const newImages = await Promise.all(
+    req.files.map((file) =>
+      uploadToCloudinary(file, "campusx/products")
+    )
+  );
+
+  product.images = [...product.images, ...newImages];
+}
 
     // Re-screen if title or description was modified
     if (req.body.title || req.body.description) {
