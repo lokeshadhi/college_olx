@@ -15,6 +15,8 @@ import authRoutes from "./routes/authRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
+import reviewRoutes from "./routes/reviewRoutes.js";
+import transactionRoutes from "./routes/transactionRoutes.js";
 import { initChatSocket } from "./sockets/chatSocket.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 import { globalLimiter } from "./middleware/rateLimiter.js";
@@ -118,6 +120,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/reviews", reviewRoutes);
+app.use("/api/transactions", transactionRoutes);
 
 // 404 + error handling (must be last)
 app.use(notFound);

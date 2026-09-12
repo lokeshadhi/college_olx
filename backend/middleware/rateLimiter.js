@@ -130,4 +130,21 @@ export const resendVerificationLimiter = rateLimit({
   ),
 });
 
+/**
+ * Review rate limiter:
+ * 30 review submissions/edits per 15 minutes per user/IP.
+ */
+export const reviewLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_REVIEW_MAX) || (isTestMode ? 1000 : 30),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    return req.user?._id ? `user_${req.user._id}` : ipKeyGenerator(req.ip);
+  },
+  handler: createStandardHandler(
+    "Too many review requests. Please wait a moment before trying again."
+  ),
+});
+
 

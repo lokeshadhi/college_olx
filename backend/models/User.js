@@ -103,6 +103,40 @@ const userSchema = new mongoose.Schema(
       default: 0,
       select: false,
     },
+    // Ratings & Reviews aggregate statistics
+    sellerRating: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+    sellerReviewCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    buyerRating: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+    buyerReviewCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    rating: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+    reviewCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   { timestamps: true }
 );

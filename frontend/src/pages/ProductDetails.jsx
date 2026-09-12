@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { FiPhone, FiUser, FiHome as FiDept, FiMapPin, FiAlertTriangle, FiShield, FiMessageSquare, FiCheckCircle } from "react-icons/fi";
+import { FiPhone, FiUser, FiHome as FiDept, FiMapPin, FiAlertTriangle, FiShield, FiMessageSquare, FiCheckCircle, FiStar } from "react-icons/fi";
 import toast from "react-hot-toast";
 import MainLayout from "../layouts/MainLayout.jsx";
 import Loader from "../components/Loader.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import ProductCard from "../components/ProductCard.jsx";
 import Button from "../components/Button.jsx";
+import StarRating from "../components/reviews/StarRating.jsx";
+import ProductReviewsSection from "../components/reviews/ProductReviewsSection.jsx";
 import { getProductById } from "../services/productService.js";
 import { chatService } from "../services/chatService.js";
 import { useAuth } from "../hooks/useAuth.js";
@@ -186,6 +188,26 @@ const ProductDetails = () => {
                   <span>{product.location}</span>
                 </div>
               )}
+              <div className="seller-row">
+                <span>
+                  <FiStar /> Rating
+                </span>
+                <span>
+                  {product.owner?.sellerRating > 0 ? (
+                    <StarRating
+                      rating={product.owner.sellerRating}
+                      size="sm"
+                      showValue
+                      showCount
+                      count={product.owner.sellerReviewCount || 0}
+                    />
+                  ) : (
+                    <span style={{ fontSize: "0.82rem", color: "var(--color-text-muted, #5B6478)" }}>
+                      New Seller (No reviews yet)
+                    </span>
+                  )}
+                </span>
+              </div>
               {Boolean(product.owner?.isEmailVerified ?? product.seller?.isEmailVerified) && (
                 <div
                   style={{
@@ -227,6 +249,12 @@ const ProductDetails = () => {
             </div>
           </div>
         </div>
+
+        {/* Product & Seller Reviews Section */}
+        <ProductReviewsSection
+          productId={product._id}
+          seller={product.owner || product.seller}
+        />
 
         {related.length > 0 && (
           <section className="section">

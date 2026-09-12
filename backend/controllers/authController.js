@@ -1,3 +1,5 @@
+import cloudinary from "../config/cloudinary.js";
+import streamifier from "streamifier";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
@@ -12,6 +14,25 @@ const DUMMY_HASH = "$2a$10$abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmno";
 // @desc    Register a new student and dispatch 6-digit verification code
 // @route   POST /api/auth/register
 // @access  Public
+const uploadProfileImageToCloudinary = (buffer) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: "campusx/profile-images",
+        resource_type: "image",
+      },
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      }
+    );
+
+    streamifier.createReadStream(buffer).pipe(uploadStream);
+  });
+};
 export const register = async (req, res, next) => {
   try {
     const { name, email, phone, department, year, password } = req.body;
@@ -737,3 +758,43 @@ export const updateProfile = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Upload profile image to Cloudinary and update user's profile
+// @route   POST /api/auth/profile-image
+// @access  Private
+export const uploadProfileImage = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Please upload an image",
+      });
+    }
+
+    const result = await uploadProfileImageToCloudinary(req.file.buffer);
+
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    user.profileImage = result.secure_url;
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Profile image uploaded successfully",
+      data: {
+        profileImage: user.profileImage,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

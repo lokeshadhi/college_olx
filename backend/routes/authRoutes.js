@@ -1,3 +1,4 @@
+import profileUpload from "../middleware/profileupload.js";
 import express from "express";
 import {
   register,
@@ -11,6 +12,8 @@ import {
   resetPassword,
   verifyEmail,
   resendVerification,
+  uploadProfileImage,
+  
 } from "../controllers/authController.js";
 import { protect } from "../middleware/auth.js";
 import {
@@ -32,8 +35,14 @@ import {
 } from "../middleware/rateLimiter.js";
 
 const router = express.Router();
-
+router.post(
+  "/profile-image",
+  protect,
+  profileUpload.single("profileImage"),
+  uploadProfileImage
+);
 // Public authentication routes (rate-limited)
+  
 router.post("/register", authLimiter, registerRules, handleValidation, register);
 router.post("/verify-email", verifyEmailLimiter, verifyEmailRules, handleValidation, verifyEmail);
 router.post("/resend-verification", resendVerificationLimiter, resendVerificationRules, handleValidation, resendVerification);

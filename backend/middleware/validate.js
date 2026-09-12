@@ -178,3 +178,34 @@ export const productRules = [
     .isIn(["New", "Like New", "Good", "Fair", "Old"])
     .withMessage("Please select a valid condition"),
 ];
+
+export const createReviewRules = [
+  body("transactionId")
+    .trim()
+    .notEmpty()
+    .withMessage("Transaction ID is required")
+    .isMongoId()
+    .withMessage("Invalid transaction ID format"),
+  body("rating")
+    .notEmpty()
+    .withMessage("Rating is required")
+    .isInt({ min: 1, max: 5 })
+    .withMessage("Rating must be an integer between 1 and 5"),
+  body("review")
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage("Review cannot exceed 500 characters"),
+];
+
+export const updateReviewRules = [
+  body("rating")
+    .optional()
+    .isInt({ min: 1, max: 5 })
+    .withMessage("Rating must be an integer between 1 and 5"),
+  body("review")
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage("Review cannot exceed 500 characters"),
+];
