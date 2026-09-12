@@ -68,7 +68,7 @@ const Chat = () => {
         }
 
         // Mark messages as read locally and on server
-        await chatService.markAsRead(convId).catch(() => {});
+        await chatService.markMessagesAsRead(convId).catch(() => {});
         if (socket && isConnected) {
           socket.emit("message_read", { conversationId: convId });
         }
