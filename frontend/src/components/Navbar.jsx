@@ -25,7 +25,7 @@ const Navbar = () => {
     <header className="navbar">
       <div className="container navbar-inner">
         <Link to="/" className="navbar-logo" onClick={closeMenu} aria-label="CampusX Marketplace">
-          <CampusLogo height={42} />
+          <CampusLogo height={52} />
         </Link>
 
         <nav className={`navbar-links ${menuOpen ? "open" : ""}`}>

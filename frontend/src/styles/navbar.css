@@ -31,8 +31,9 @@
 }
 
 .campus-brand-logo .campus-logo-img {
-  max-width: 220px;
+  max-width: 260px;
   height: auto;
+  image-rendering: -webkit-optimize-contrast;
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 

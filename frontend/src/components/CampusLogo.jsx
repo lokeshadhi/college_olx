@@ -5,9 +5,9 @@ import logoDark from "../assets/campusx-logo-dark.png";
  * CampusLogo — CampusX Marketplace Brand Logo
  * Features the signature CampusX Marketplace branding with academic cap,
  * shopping cart handle, and dual wheels on the "X".
- * Automatically adapts between light and dark themes.
+ * Automatically adapts between light and dark themes with high clarity.
  */
-export const CampusLogo = ({ height = 42, className = "" }) => {
+export const CampusLogo = ({ height = 52, className = "" }) => {
   return (
     <div
       className={`campus-brand-logo ${className}`}
@@ -26,7 +26,8 @@ export const CampusLogo = ({ height = 42, className = "" }) => {
           height: `${height}px`,
           width: "auto",
           objectFit: "contain",
-          filter: "drop-shadow(0 2px 6px rgba(12, 22, 53, 0.12))",
+          imageRendering: "-webkit-optimize-contrast",
+          filter: "drop-shadow(0 2px 8px rgba(12, 22, 53, 0.12))",
           transition: "transform 0.2s ease",
         }}
       />
@@ -39,7 +40,8 @@ export const CampusLogo = ({ height = 42, className = "" }) => {
           height: `${height}px`,
           width: "auto",
           objectFit: "contain",
-          filter: "drop-shadow(0 2px 10px rgba(59, 130, 246, 0.25))",
+          imageRendering: "-webkit-optimize-contrast",
+          filter: "drop-shadow(0 2px 12px rgba(59, 130, 246, 0.28))",
           transition: "transform 0.2s ease",
         }}
       />
