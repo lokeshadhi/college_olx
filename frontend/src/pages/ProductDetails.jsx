@@ -435,7 +435,7 @@ const ProductDetails = () => {
                       <div
                         key={req._id}
                         style={{
-                          background: "#FFFFFF",
+                          background: "var(--color-paper-raised, #FFFFFF)",
                           border: "1px solid var(--color-border, #E4DFD2)",
                           borderRadius: "8px",
                           padding: "12px 14px",

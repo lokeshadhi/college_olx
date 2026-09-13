@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { CATEGORIES } from "../utils/constants.js";
+import CampusLogo from "./CampusLogo.jsx";
 
 const Footer = () => {
   const year = new Date().getFullYear();
@@ -9,7 +10,9 @@ const Footer = () => {
       <div className="container">
         <div className="footer-grid">
           <div className="footer-col footer-brand">
-            <h4>CampusX</h4>
+            <div className="footer-logo">
+              <CampusLogo height={38} />
+            </div>
             <p>
               A dedicated marketplace for students to buy and sell second-hand books,
               electronics, and hostel essentials — inside your own campus.

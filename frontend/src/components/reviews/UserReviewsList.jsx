@@ -187,7 +187,7 @@ const UserReviewsList = ({ userId, userStats = {}, showBreakdown = true }) => {
           onClick={() => setRoleFilter("")}
           style={{
             background: roleFilter === "" ? "var(--color-ink, #16213E)" : "transparent",
-            color: roleFilter === "" ? "#FFF" : "var(--color-text-muted, #5B6478)",
+            color: roleFilter === "" ? "var(--color-paper, #F8F6F0)" : "var(--color-text-muted, #5B6478)",
             border: "none",
             borderRadius: "999px",
             padding: "6px 14px",
@@ -205,7 +205,7 @@ const UserReviewsList = ({ userId, userStats = {}, showBreakdown = true }) => {
           onClick={() => setRoleFilter("seller")}
           style={{
             background: roleFilter === "seller" ? "var(--color-ink, #16213E)" : "transparent",
-            color: roleFilter === "seller" ? "#FFF" : "var(--color-text-muted, #5B6478)",
+            color: roleFilter === "seller" ? "var(--color-paper, #F8F6F0)" : "var(--color-text-muted, #5B6478)",
             border: "none",
             borderRadius: "999px",
             padding: "6px 14px",
@@ -223,7 +223,7 @@ const UserReviewsList = ({ userId, userStats = {}, showBreakdown = true }) => {
           onClick={() => setRoleFilter("buyer")}
           style={{
             background: roleFilter === "buyer" ? "var(--color-ink, #16213E)" : "transparent",
-            color: roleFilter === "buyer" ? "#FFF" : "var(--color-text-muted, #5B6478)",
+            color: roleFilter === "buyer" ? "var(--color-paper, #F8F6F0)" : "var(--color-text-muted, #5B6478)",
             border: "none",
             borderRadius: "999px",
             padding: "6px 14px",

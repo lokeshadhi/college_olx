@@ -4,6 +4,7 @@ import { FiSun, FiMoon, FiMenu, FiX } from "react-icons/fi";
 import { useAuth } from "../hooks/useAuth.js";
 import { useTheme } from "../hooks/useTheme.js";
 import { useSocket } from "../hooks/useSocket.js";
+import CampusLogo from "./CampusLogo.jsx";
 
 const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -23,9 +24,8 @@ const Navbar = () => {
   return (
     <header className="navbar">
       <div className="container navbar-inner">
-        <Link to="/" className="navbar-logo" onClick={closeMenu}>
-          <span className="logo-mark">CX</span>
-          CampusX
+        <Link to="/" className="navbar-logo" onClick={closeMenu} aria-label="CampusX Marketplace">
+          <CampusLogo height={42} />
         </Link>
 
         <nav className={`navbar-links ${menuOpen ? "open" : ""}`}>

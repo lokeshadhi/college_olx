@@ -196,7 +196,9 @@ const MyTransactions = () => {
               background:
                 activeTab === "all" ? "var(--color-ink, #16213E)" : "transparent",
               color:
-                activeTab === "all" ? "#FFF" : "var(--color-text-muted, #5B6478)",
+                activeTab === "all"
+                  ? "var(--color-paper, #F8F6F0)"
+                  : "var(--color-text-muted, #5B6478)",
               border: "none",
               borderRadius: "999px",
               padding: "7px 18px",
@@ -219,7 +221,7 @@ const MyTransactions = () => {
                   : "transparent",
               color:
                 activeTab === "purchases"
-                  ? "#FFF"
+                  ? "var(--color-paper, #F8F6F0)"
                   : "var(--color-text-muted, #5B6478)",
               border: "none",
               borderRadius: "999px",
@@ -243,7 +245,7 @@ const MyTransactions = () => {
                   : "transparent",
               color:
                 activeTab === "sales"
-                  ? "#FFF"
+                  ? "var(--color-paper, #F8F6F0)"
                   : "var(--color-text-muted, #5B6478)",
               border: "none",
               borderRadius: "999px",

@@ -360,7 +360,7 @@ const ForgotPassword = () => {
                         fontFamily: "monospace",
                         border: digit ? "2px solid var(--color-forest)" : "1px solid var(--color-border)",
                         borderRadius: "var(--radius-sm)",
-                        background: digit ? "rgba(27, 77, 62, 0.04)" : "#ffffff",
+                        background: "var(--color-paper-raised, #ffffff)",
                         color: "var(--color-ink)",
                         outline: "none",
                         transition: "all 0.15s ease",
