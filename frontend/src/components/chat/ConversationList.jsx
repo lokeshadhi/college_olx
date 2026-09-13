@@ -27,16 +27,29 @@ const ConversationList = ({
   const { isOnline } = useSocket();
   const [search, setSearch] = useState("");
 
+  const currentUserId = (user?._id || user?.id || "").toString();
+
+  const getOtherParticipant = (conv) => {
+    const raw = conv?.participants?.find((p) => {
+      const pId = (p?._id || p?.id || p || "").toString();
+      return pId && pId !== currentUserId;
+    });
+    if (typeof raw === "object" && raw !== null) {
+      return raw;
+    }
+    return raw ? { _id: raw.toString(), name: "Student" } : null;
+  };
+
   const filteredConversations = useMemo(() => {
     if (!search.trim()) return conversations;
     const term = search.toLowerCase();
     return conversations.filter((c) => {
-      const otherUser = c.participants?.find((p) => p._id !== user?._id);
+      const otherUser = getOtherParticipant(c);
       const userName = otherUser?.name?.toLowerCase() || "";
       const productTitle = c.product?.title?.toLowerCase() || "";
       return userName.includes(term) || productTitle.includes(term);
     });
-  }, [conversations, search, user?._id]);
+  }, [conversations, search, currentUserId]);
 
   return (
     <aside className="chat-sidebar">
@@ -58,7 +71,7 @@ const ConversationList = ({
           </li>
         ) : (
           filteredConversations.map((conv) => {
-            const otherUser = conv.participants?.find((p) => p._id !== user?._id);
+            const otherUser = getOtherParticipant(conv);
             const userIsOnline = isOnline(otherUser?._id);
             const isActive = conv._id === activeId;
 

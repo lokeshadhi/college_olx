@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { FiArrowLeft, FiX, FiMessageSquare } from "react-icons/fi";
+import { FiArrowLeft, FiX, FiMessageSquare, FiSlash, FiAlertTriangle } from "react-icons/fi";
 import MessageBubble from "./MessageBubble.jsx";
 import MessageInput from "./MessageInput.jsx";
 import TypingIndicator from "./TypingIndicator.jsx";
@@ -18,6 +18,10 @@ const ChatWindow = ({
   hasMore = false,
   loadingMore = false,
   onBack,
+  blockStatus = { isBlocked: false, blockedByMe: false, blockedByUser: false },
+  onBlockUser,
+  onUnblockUser,
+  onReportUser,
 }) => {
   const { user } = useAuth();
   const { isOnline } = useSocket();
@@ -26,7 +30,24 @@ const ChatWindow = ({
   const messagesContainerRef = useRef(null);
   const prevMessagesLength = useRef(messages.length);
 
-  const otherUser = conversation?.participants?.find((p) => p._id !== user?._id);
+  const currentUserId = (user?._id || user?.id || "").toString();
+  const rawParticipant = conversation?.participants?.find((p) => {
+    const pId = (p?._id || p?.id || p || "").toString();
+    return pId && pId !== currentUserId;
+  });
+
+  const otherUser =
+    typeof rawParticipant === "object" && rawParticipant !== null
+      ? { ...rawParticipant, _id: (rawParticipant._id || rawParticipant.id || "").toString() }
+      : rawParticipant
+      ? { _id: rawParticipant.toString(), name: "Student" }
+      : conversation?.product?.seller
+      ? {
+          _id: (conversation.product.owner?._id || conversation.product.owner || "").toString(),
+          name: conversation.product.seller?.name || "Student",
+        }
+      : null;
+
   const otherIsOnline = isOnline(otherUser?._id);
 
   // Auto-scroll to bottom on new messages if near bottom
@@ -55,7 +76,7 @@ const ChatWindow = ({
 
   return (
     <div className="chat-main">
-      {/* Chat Header with user and product context */}
+      {/* Chat Header with user, product context, and moderation actions */}
       <div className="chat-main-header">
         <div className="chat-header-user">
           {onBack && (
@@ -87,24 +108,92 @@ const ChatWindow = ({
           </div>
         </div>
 
-        {/* Product Context Banner */}
-        {product && (
-          <Link
-            to={`/products/${product._id}`}
-            className="chat-product-banner"
-            title="View product details"
-          >
-            {product.images?.[0] && (
-              <img src={resolveImageUrl(product.images[0])} alt={product.title} />
+        {/* Product Context Banner & Moderation Actions */}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          {product && (
+            <Link
+              to={`/products/${product._id}`}
+              className="chat-product-banner"
+              title="View product details"
+            >
+              {product.images?.[0] && (
+                <img src={resolveImageUrl(product.images[0])} alt={product.title} />
+              )}
+              <div className="chat-product-meta">
+                <span className="chat-product-title">{product.title}</span>
+                <span className="chat-product-price">
+                  ₹{Number(product.price).toLocaleString("en-IN")}
+                </span>
+              </div>
+            </Link>
+          )}
+
+          {/* Moderation Action Buttons */}
+          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            {blockStatus?.blockedByMe ? (
+              <button
+                type="button"
+                onClick={onUnblockUser}
+                style={{
+                  background: "var(--color-paper-raised, #1B2138)",
+                  border: "1px solid var(--color-border, #2B3253)",
+                  borderRadius: "6px",
+                  padding: "5px 10px",
+                  fontSize: "0.78rem",
+                  fontWeight: 600,
+                  color: "var(--color-text, #EDEAE0)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+                title="Unblock this student"
+              >
+                <FiSlash /> Unblock
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onBlockUser}
+                style={{
+                  background: "transparent",
+                  border: "1px solid var(--color-border, #2B3253)",
+                  borderRadius: "6px",
+                  padding: "5px 8px",
+                  fontSize: "0.78rem",
+                  color: "var(--color-text-muted, #9CA3B8)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+                title="Block this student from chat"
+              >
+                <FiSlash /> Block
+              </button>
             )}
-            <div className="chat-product-meta">
-              <span className="chat-product-title">{product.title}</span>
-              <span className="chat-product-price">
-                ₹{Number(product.price).toLocaleString("en-IN")}
-              </span>
-            </div>
-          </Link>
-        )}
+
+            <button
+              type="button"
+              onClick={onReportUser}
+              style={{
+                background: "transparent",
+                border: "1px solid var(--color-border, #2B3253)",
+                borderRadius: "6px",
+                padding: "5px 8px",
+                fontSize: "0.78rem",
+                color: "var(--color-coral, #D9634B)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+              }}
+              title="Report this student"
+            >
+              <FiAlertTriangle /> Report
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Messages Scroll View */}
@@ -133,11 +222,51 @@ const ChatWindow = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Message Input with Image Upload */}
-      <MessageInput
-        onSendMessage={onSendMessage}
-        onTyping={onTyping}
-      />
+      {/* Message Input or Blocked Notice */}
+      {blockStatus?.isBlocked ? (
+        <div
+          style={{
+            padding: "16px 20px",
+            background: "var(--color-bg, #FAF8F5)",
+            borderTop: "1px solid var(--color-border, #E4DFD2)",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "0.88rem",
+              color: "var(--color-text-muted, #5B6478)",
+              marginBottom: blockStatus.blockedByMe ? "10px" : "0",
+            }}
+          >
+            {blockStatus.blockedByMe
+              ? "You have blocked this student. You cannot send or receive messages in this chat."
+              : "Communication in this chat is unavailable because you have been blocked."}
+          </div>
+          {blockStatus.blockedByMe && (
+            <button
+              onClick={onUnblockUser}
+              style={{
+                padding: "6px 14px",
+                background: "var(--color-paper-raised, #FFFFFF)",
+                border: "1px solid var(--color-border, #E4DFD2)",
+                borderRadius: "6px",
+                fontSize: "0.82rem",
+                fontWeight: 600,
+                color: "var(--color-ink, #16213E)",
+                cursor: "pointer",
+              }}
+            >
+              Unblock to resume chat
+            </button>
+          )}
+        </div>
+      ) : (
+        <MessageInput
+          onSendMessage={onSendMessage}
+          onTyping={onTyping}
+        />
+      )}
 
       {/* Image Lightbox Modal */}
       {lightboxImage && (

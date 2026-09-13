@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useRef, useCallback } from "react";
 import { io } from "socket.io-client";
 import { useAuth } from "../hooks/useAuth.js";
+import { getUnreadCount } from "../services/chatService.js";
 
 export const SocketContext = createContext(null);
 
@@ -11,6 +12,35 @@ export const SocketProvider = ({ children }) => {
   const [onlineUsers, setOnlineUsers] = useState(new Set());
   const [unreadTotal, setUnreadTotal] = useState(0);
   const socketRef = useRef(null);
+  const activeConversationIdRef = useRef(null);
+
+  const fetchUnreadCount = useCallback(async () => {
+    if (!isAuthenticated || !user) {
+      setUnreadTotal(0);
+      return;
+    }
+    try {
+      const res = await getUnreadCount();
+      if (res?.success && typeof res.count === "number") {
+        setUnreadTotal(res.count);
+      }
+    } catch {
+      // Silently catch in background
+    }
+  }, [isAuthenticated, user]);
+
+  const setActiveConversation = useCallback((convId) => {
+    activeConversationIdRef.current = convId || null;
+  }, []);
+
+  useEffect(() => {
+    // Initial fetch of authoritative unread count
+    if (isAuthenticated && user) {
+      fetchUnreadCount();
+    } else {
+      setUnreadTotal(0);
+    }
+  }, [isAuthenticated, user?._id, fetchUnreadCount]);
 
   useEffect(() => {
     // Only connect if the user is authenticated
@@ -40,6 +70,8 @@ export const SocketProvider = ({ children }) => {
 
     socketInstance.on("connect", () => {
       setIsConnected(true);
+      // Synchronize latest unread count on connect / reconnect
+      fetchUnreadCount();
     });
 
     socketInstance.on("disconnect", () => {
@@ -73,9 +105,19 @@ export const SocketProvider = ({ children }) => {
       }
     });
 
-    // Global message notification counter
-    socketInstance.on("notification_new_message", () => {
+    // Global message notification counter (avoids incrementing if currently viewing conversation)
+    socketInstance.on("notification_new_message", (data) => {
+      if (data?.conversationId && data.conversationId === activeConversationIdRef.current) {
+        return;
+      }
       setUnreadTotal((prev) => prev + 1);
+    });
+
+    // Authoritative unread count update broadcast by backend read receipts
+    socketInstance.on("unread_count_updated", ({ unreadTotal: newTotal }) => {
+      if (typeof newTotal === "number") {
+        setUnreadTotal(newTotal);
+      }
     });
 
     return () => {
@@ -84,7 +126,7 @@ export const SocketProvider = ({ children }) => {
       setSocket(null);
       setIsConnected(false);
     };
-  }, [isAuthenticated, user?._id]);
+  }, [isAuthenticated, user?._id, fetchUnreadCount]);
 
   const isOnline = useCallback(
     (userId) => {
@@ -102,6 +144,8 @@ export const SocketProvider = ({ children }) => {
         onlineUsers,
         unreadTotal,
         setUnreadTotal,
+        fetchUnreadCount,
+        setActiveConversation,
         isOnline,
       }}
     >
@@ -111,3 +155,4 @@ export const SocketProvider = ({ children }) => {
 };
 
 export default SocketContext;
+

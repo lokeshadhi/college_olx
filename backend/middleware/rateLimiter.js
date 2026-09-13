@@ -128,4 +128,56 @@ export const reviewLimiter = rateLimit({
   ),
 });
 
+/**
+ * Report rate limiter:
+ * 10 reports per 15 minutes per user/IP to prevent spamming the moderation queue.
+ */
+export const reportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_REPORT_MAX) || (isTestMode ? 1000 : 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    return req.user?._id ? `report_${req.user._id}` : ipKeyGenerator(req.ip);
+  },
+  handler: createStandardHandler(
+    "Too many reports submitted. Please wait before submitting another report."
+  ),
+});
+
+/**
+ * Block/unblock rate limiter:
+ * 20 block/unblock actions per 15 minutes per user/IP.
+ */
+export const blockLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_BLOCK_MAX) || (isTestMode ? 1000 : 20),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    return req.user?._id ? `block_${req.user._id}` : ipKeyGenerator(req.ip);
+  },
+  handler: createStandardHandler(
+    "Too many block/unblock actions. Please wait a moment."
+  ),
+});
+
+/**
+ * Chat image upload rate limiter:
+ * 15 image uploads per 5 minutes per user/IP.
+ */
+export const chatUploadLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_CHAT_UPLOAD_MAX) || (isTestMode ? 1000 : 15),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    return req.user?._id ? `chatupload_${req.user._id}` : ipKeyGenerator(req.ip);
+  },
+  handler: createStandardHandler(
+    "Too many chat image uploads. Please wait a few minutes before uploading again."
+  ),
+});
+
+
 

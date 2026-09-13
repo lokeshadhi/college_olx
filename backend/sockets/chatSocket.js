@@ -1,6 +1,7 @@
 import socketAuth from "../middleware/socketAuth.js";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
+import Block from "../models/Block.js";
 import { logSecurityEvent, SECURITY_EVENTS } from "../utils/securityLogger.js";
 
 // In-memory presence tracker: maps userId -> Set of active socketIds (for multi-tab support)
@@ -8,6 +9,45 @@ const userSocketsMap = new Map();
 
 // In-memory rate limiting tracker: maps socketId -> array of message timestamps (sliding window)
 const socketRateLimits = new Map();
+
+/**
+ * Checks if an image URL is safe and trusted
+ */
+const isSafeImageUrl = (url) => {
+  if (typeof url !== "string") return false;
+  const trimmed = url.trim();
+  return (
+    trimmed.startsWith("https://res.cloudinary.com/") ||
+    trimmed.startsWith("/uploads/") ||
+    /^(https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/uploads\/)/i.test(trimmed)
+  );
+};
+
+const getParticipantId = (p) => (p && p._id ? p._id.toString() : p ? p.toString() : null);
+
+/**
+ * Helper to verify participant and non-blocked status for socket events
+ */
+const verifyConversationParticipant = async (convId, uId) => {
+  if (!convId || !uId) return null;
+  const conversation = await Conversation.findById(convId);
+  if (!conversation || !Array.isArray(conversation.participants)) return null;
+
+  const isParticipant = conversation.participants.some(
+    (p) => getParticipantId(p) === uId.toString()
+  );
+  if (!isParticipant) return null;
+
+  const otherParticipant = conversation.participants.find(
+    (p) => getParticipantId(p) !== uId.toString()
+  );
+  const otherId = getParticipantId(otherParticipant);
+  if (otherId && (await Block.isBlocked(uId, otherId))) {
+    return null; // Blocked users cannot interact
+  }
+
+  return conversation;
+};
 
 /**
  * Checks if a user is currently online (has at least 1 active socket connection)
@@ -78,7 +118,7 @@ export const initChatSocket = (io) => {
     // Send the current list of online users to the newly connected client
     socket.emit("online_users", Array.from(userSocketsMap.keys()));
 
-    // 3. Join conversation room with participant verification
+    // 3. Join conversation room with participant and block verification
     socket.on("join_conversation", async (data, callback) => {
       try {
         const conversationId = data?.conversationId;
@@ -92,7 +132,7 @@ export const initChatSocket = (io) => {
         }
 
         const isParticipant = conversation.participants.some(
-          (p) => p.toString() === userId
+          (p) => getParticipantId(p) === userId
         );
 
         if (!isParticipant) {
@@ -101,6 +141,16 @@ export const initChatSocket = (io) => {
           });
           socket.emit("chat_error", { message: "Unauthorized to join this conversation" });
           if (typeof callback === "function") callback({ success: false, error: "Unauthorized" });
+          return;
+        }
+
+        const otherParticipant = conversation.participants.find(
+          (p) => getParticipantId(p) !== userId
+        );
+        const otherId = getParticipantId(otherParticipant);
+        if (otherId && (await Block.isBlocked(userId, otherId))) {
+          socket.emit("chat_error", { message: "Cannot join room. Communication is blocked." });
+          if (typeof callback === "function") callback({ success: false, error: "Blocked" });
           return;
         }
 
@@ -119,12 +169,15 @@ export const initChatSocket = (io) => {
       }
     });
 
-    // 5. Send message (with validation, rate limiting, and MongoDB persistence)
+    // 5. Send message in real-time
     socket.on("send_message", async (data, callback) => {
       try {
-        // Anti-spam rate limiting check
+        // Enforce rate limiting
         if (!checkSocketRateLimit(socket.id)) {
-          socket.emit("chat_error", { message: "You are sending messages too quickly. Please wait a moment." });
+          logSecurityEvent(SECURITY_EVENTS.RATE_LIMIT_EXCEEDED, {
+            metadata: { reason: "Socket rate limit exceeded for sending messages", userId },
+          });
+          socket.emit("chat_error", { message: "Rate limit exceeded. Please slow down." });
           if (typeof callback === "function") callback({ success: false, error: "Rate limit exceeded" });
           return;
         }
@@ -132,7 +185,8 @@ export const initChatSocket = (io) => {
         const { conversationId, content = "", messageType = "text", imageUrl = "" } = data || {};
 
         if (!conversationId) {
-          if (typeof callback === "function") callback({ success: false, error: "conversationId required" });
+          socket.emit("chat_error", { message: "conversationId is required" });
+          if (typeof callback === "function") callback({ success: false, error: "conversationId is required" });
           return;
         }
 
@@ -144,11 +198,30 @@ export const initChatSocket = (io) => {
         }
 
         const isParticipant = conversation.participants.some(
-          (p) => p.toString() === userId
+          (p) => getParticipantId(p) === userId
         );
         if (!isParticipant) {
           socket.emit("chat_error", { message: "Unauthorized to send messages in this conversation" });
           if (typeof callback === "function") callback({ success: false, error: "Unauthorized" });
+          return;
+        }
+
+        const receiverParticipant = conversation.participants.find(
+          (p) => getParticipantId(p) !== userId
+        );
+        const receiverId = getParticipantId(receiverParticipant);
+
+        if (!receiverId) {
+          socket.emit("chat_error", { message: "Recipient not found in conversation" });
+          if (typeof callback === "function") callback({ success: false, error: "Recipient not found" });
+          return;
+        }
+
+        // Enforce block status
+        const isBlocked = await Block.isBlocked(userId, receiverId);
+        if (isBlocked) {
+          socket.emit("chat_error", { message: "Cannot send message. Communication between these users is blocked." });
+          if (typeof callback === "function") callback({ success: false, error: "Blocked" });
           return;
         }
 
@@ -166,16 +239,12 @@ export const initChatSocket = (io) => {
             return;
           }
         } else if (messageType === "image") {
-          if (!imageUrl || typeof imageUrl !== "string") {
-            socket.emit("chat_error", { message: "Invalid image URL" });
-            if (typeof callback === "function") callback({ success: false, error: "Missing image" });
+          if (!imageUrl || typeof imageUrl !== "string" || !isSafeImageUrl(imageUrl)) {
+            socket.emit("chat_error", { message: "Invalid or insecure image URL" });
+            if (typeof callback === "function") callback({ success: false, error: "Invalid image URL" });
             return;
           }
         }
-
-        const receiverId = conversation.participants
-          .find((p) => p.toString() !== userId)
-          ?.toString();
 
         // Save to MongoDB BEFORE considering message sent
         const message = await Message.create({
@@ -220,32 +289,55 @@ export const initChatSocket = (io) => {
       }
     });
 
-    // 6. Typing indicators (throttled/debounced from client)
-    socket.on("typing_start", (data) => {
+    // 6. Typing indicators (strictly authorized for conversation participants, blocked check)
+    socket.on("typing_start", async (data) => {
       const conversationId = data?.conversationId;
-      if (conversationId) {
-        socket.to(`conversation:${conversationId}`).emit("user_typing", {
-          conversationId,
-          userId,
-        });
-      }
+      if (!conversationId) return;
+
+      const authorized = await verifyConversationParticipant(conversationId, userId);
+      if (!authorized) return;
+
+      socket.to(`conversation:${conversationId}`).emit("user_typing", {
+        conversationId,
+        userId,
+      });
     });
 
-    socket.on("typing_stop", (data) => {
+    socket.on("typing_stop", async (data) => {
       const conversationId = data?.conversationId;
-      if (conversationId) {
-        socket.to(`conversation:${conversationId}`).emit("user_stop_typing", {
-          conversationId,
-          userId,
-        });
-      }
+      if (!conversationId) return;
+
+      const authorized = await verifyConversationParticipant(conversationId, userId);
+      if (!authorized) return;
+
+      socket.to(`conversation:${conversationId}`).emit("user_stop_typing", {
+        conversationId,
+        userId,
+      });
     });
 
-    // 7. Message read receipts
-    socket.on("message_read", async (data, callback) => {
+    // 7. Message read receipts (authorized for participants, with unread sync)
+    const handleReadReceipt = async (data, callback) => {
       try {
         const conversationId = data?.conversationId;
-        if (!conversationId) return;
+        if (!conversationId) {
+          if (typeof callback === "function") callback({ success: false, error: "Missing conversationId" });
+          return;
+        }
+
+        const conversation = await Conversation.findById(conversationId);
+        if (!conversation) {
+          if (typeof callback === "function") callback({ success: false, error: "Not found" });
+          return;
+        }
+
+        const isParticipant = conversation.participants.some(
+          (p) => getParticipantId(p) === userId
+        );
+        if (!isParticipant) {
+          if (typeof callback === "function") callback({ success: false, error: "Unauthorized" });
+          return;
+        }
 
         const now = new Date();
         const updateResult = await Message.updateMany(
@@ -267,11 +359,22 @@ export const initChatSocket = (io) => {
           });
         }
 
+        // Authoritative unread count update for reader's other tabs
+        const unreadTotal = await Message.countDocuments({
+          receiver: userId,
+          read: false,
+        });
+        io.to(`user:${userId}`).emit("unread_count_updated", { unreadTotal });
+
         if (typeof callback === "function") callback({ success: true });
       } catch (error) {
         if (typeof callback === "function") callback({ success: false });
       }
-    });
+    };
+
+    socket.on("message_read", handleReadReceipt);
+    socket.on("mark_as_read", handleReadReceipt);
+
 
     // 8. Disconnect handling (multi-tab safe presence)
     socket.on("disconnect", () => {

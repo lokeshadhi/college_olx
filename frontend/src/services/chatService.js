@@ -50,14 +50,74 @@ export const markMessagesAsRead = async (conversationId) => {
   return response.data;
 };
 
+// Backward-compatible alias for marking messages as read
+export const markAsRead = markMessagesAsRead;
+
 /**
- * Upload an image attachment for chat
+ * Fetch total unread message count for authenticated user across all conversations
  */
-export const uploadChatImage = async (file) => {
+export const getUnreadCount = async () => {
+  const response = await api.get("/chat/unread-count");
+  return response.data;
+};
+
+/**
+ * Upload an image attachment for chat (optionally associates with conversation)
+ */
+export const uploadChatImage = async (file, conversationId = null) => {
   const formData = new FormData();
   formData.append("image", file);
+  if (conversationId) {
+    formData.append("conversationId", conversationId);
+  }
   const response = await api.post("/chat/upload-image", formData, {
     headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+};
+
+/**
+ * Block another user from chat
+ */
+export const blockUser = async (userId) => {
+  const response = await api.post("/chat/block", { userId });
+  return response.data;
+};
+
+/**
+ * Unblock a previously blocked user
+ */
+export const unblockUser = async (userId) => {
+  const response = await api.post("/chat/unblock", { userId });
+  return response.data;
+};
+
+/**
+ * Get list of users blocked by current user
+ */
+export const getBlockedUsers = async () => {
+  const response = await api.get("/chat/blocked-users");
+  return response.data;
+};
+
+/**
+ * Get block relationship status for a specific conversation
+ */
+export const getConversationBlockStatus = async (conversationId) => {
+  const response = await api.get(`/chat/conversations/${conversationId}/block-status`);
+  return response.data;
+};
+
+/**
+ * Submit a moderation report
+ */
+export const reportTarget = async ({ reportedUserId, conversationId, messageId, reason, description }) => {
+  const response = await api.post("/chat/report", {
+    reportedUserId,
+    conversationId,
+    messageId,
+    reason,
+    description,
   });
   return response.data;
 };
@@ -69,7 +129,14 @@ export const chatService = {
   getMessages,
   sendMessage,
   markMessagesAsRead,
+  markAsRead,
+  getUnreadCount,
   uploadChatImage,
+  blockUser,
+  unblockUser,
+  getBlockedUsers,
+  getConversationBlockStatus,
+  reportTarget,
 };
 
 export default chatService;

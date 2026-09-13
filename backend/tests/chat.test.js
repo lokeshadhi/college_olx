@@ -7,6 +7,8 @@ import User from "../models/User.js";
 import Product from "../models/Product.js";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
+import Block from "../models/Block.js";
+import Report from "../models/Report.js";
 import { isUserOnline } from "../sockets/chatSocket.js";
 
 describe("CampusX Real-Time Chat & Socket.IO Test Suite", () => {
@@ -56,6 +58,8 @@ describe("CampusX Real-Time Chat & Socket.IO Test Suite", () => {
   let buyerToken;
   let sellerToken;
   let strangerToken;
+  let mockBlocks = [];
+  let mockReports = [];
 
   before(async () => {
     process.env.NODE_ENV = "test";
@@ -84,6 +88,94 @@ describe("CampusX Real-Time Chat & Socket.IO Test Suite", () => {
     Product.findById = async (id) => {
       if (id?.toString() === mockProduct._id) return mockProduct;
       return null;
+    };
+
+    // Mock Block methods
+    Block.isBlocked = async (user1Id, user2Id) => {
+      const u1 = user1Id?.toString();
+      const u2 = user2Id?.toString();
+      return mockBlocks.some(
+        (b) =>
+          (b.blocker === u1 && b.blocked === u2) ||
+          (b.blocker === u2 && b.blocked === u1)
+      );
+    };
+
+    Block.getBlockStatus = async (currentUserId, otherUserId) => {
+      const current = currentUserId?.toString();
+      const other = otherUserId?.toString();
+      const isBlockedByMe = mockBlocks.some((b) => b.blocker === current && b.blocked === other);
+      const isBlockedByOther = mockBlocks.some((b) => b.blocker === other && b.blocked === current);
+      return {
+        isBlocked: isBlockedByMe || isBlockedByOther,
+        isBlockedByMe,
+        isBlockedByOther,
+      };
+    };
+
+    Block.findOneAndUpdate = async (filter) => {
+      const blocker = filter.blocker?.toString();
+      const blocked = filter.blocked?.toString();
+      let existing = mockBlocks.find((b) => b.blocker === blocker && b.blocked === blocked);
+      if (!existing) {
+        existing = { _id: `block_${Date.now()}`, blocker, blocked, createdAt: new Date() };
+        mockBlocks.push(existing);
+      }
+      return existing;
+    };
+
+    Block.findOneAndDelete = async (filter) => {
+      const blocker = filter.blocker?.toString();
+      const blocked = filter.blocked?.toString();
+      const index = mockBlocks.findIndex((b) => b.blocker === blocker && b.blocked === blocked);
+      if (index !== -1) {
+        return mockBlocks.splice(index, 1)[0];
+      }
+      return null;
+    };
+
+    Block.find = (filter) => {
+      const blocker = filter.blocker?.toString();
+      const matching = mockBlocks.filter((b) => !blocker || b.blocker === blocker);
+      return {
+        populate: () => ({
+          lean: () =>
+            Promise.resolve(
+              matching.map((b) => ({
+                ...b,
+                blocked:
+                  b.blocked === mockSeller._id
+                    ? mockSeller
+                    : b.blocked === mockBuyer._id
+                    ? mockBuyer
+                    : { _id: b.blocked, name: "Blocked User" },
+              }))
+            ),
+        }),
+      };
+    };
+
+    // Mock Report methods
+    Report.findOne = async (query) => {
+      return (
+        mockReports.find(
+          (r) =>
+            r.reporter === query.reporter &&
+            r.reportedUser === query.reportedUser &&
+            r.status === "pending"
+        ) || null
+      );
+    };
+
+    Report.create = async (data) => {
+      const newReport = {
+        _id: `report_${Date.now()}`,
+        ...data,
+        status: "pending",
+        createdAt: new Date(),
+      };
+      mockReports.push(newReport);
+      return newReport;
     };
 
     // Start ephemeral server
@@ -286,6 +378,20 @@ describe("CampusX Real-Time Chat & Socket.IO Test Suite", () => {
       const body = await res.json();
       assert.equal(res.status, 403);
       assert.ok(body.message.includes("Not authorized"));
+    });
+
+    it("should return authoritative unread count across all conversations", async () => {
+      Message.countDocuments = async () => 4;
+      const res = await fetch(`${baseUrl}/api/chat/unread-count`, {
+        headers: {
+          Authorization: `Bearer ${buyerToken}`,
+        },
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 200);
+      assert.equal(body.success, true);
+      assert.equal(body.count, 4);
     });
   });
 
@@ -495,6 +601,340 @@ describe("CampusX Real-Time Chat & Socket.IO Test Suite", () => {
           }, 50);
         });
       });
+    });
+  });
+
+  // ==========================================================
+  // 5. BLOCK & ABUSE PREVENTION SYSTEM
+  // ==========================================================
+  describe("5. Block & Abuse Prevention System", () => {
+    const testConvId = "66e01234567890abcdef1001";
+
+    beforeEach(() => {
+      mockBlocks = [];
+
+      Conversation.findById = (id) => {
+        const conv = {
+          _id: testConvId,
+          participants: [mockBuyer._id, mockSeller._id],
+          product: mockProduct,
+        };
+        return {
+          populate: () => ({
+            populate: () => ({
+              lean: () => Promise.resolve(conv),
+              then: (fn) => Promise.resolve(conv).then(fn),
+            }),
+            then: (fn) => Promise.resolve(conv).then(fn),
+          }),
+          then: (fn) => Promise.resolve(conv).then(fn),
+        };
+      };
+    });
+
+    it("should reject self-blocking with 400 Bad Request", async () => {
+      const res = await fetch(`${baseUrl}/api/chat/block`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${buyerToken}`,
+        },
+        body: JSON.stringify({ userId: mockBuyer._id }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 400);
+      assert.equal(body.success, false);
+      assert.ok(body.message.includes("cannot block yourself"));
+    });
+
+    it("should block a target user and update block status", async () => {
+      const res = await fetch(`${baseUrl}/api/chat/block`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${buyerToken}`,
+        },
+        body: JSON.stringify({ userId: mockSeller._id }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 200);
+      assert.equal(body.success, true);
+
+      const isBlocked = await Block.isBlocked(mockBuyer._id, mockSeller._id);
+      assert.equal(isBlocked, true);
+    });
+
+    it("should report correct bidirectional block status for a conversation", async () => {
+      mockBlocks.push({ blocker: mockBuyer._id, blocked: mockSeller._id });
+
+      const res = await fetch(`${baseUrl}/api/chat/conversations/${testConvId}/block-status`, {
+        headers: {
+          Authorization: `Bearer ${buyerToken}`,
+        },
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 200);
+      assert.equal(body.success, true);
+      assert.equal(body.data.isBlocked, true);
+      assert.equal(body.data.isBlockedByMe, true);
+      assert.equal(body.data.isBlockedByOther, false);
+    });
+
+    it("should prevent starting a conversation when communication is blocked", async () => {
+      mockBlocks.push({ blocker: mockSeller._id, blocked: mockBuyer._id });
+
+      const res = await fetch(`${baseUrl}/api/chat/conversations`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${buyerToken}`,
+        },
+        body: JSON.stringify({ productId: mockProduct._id }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 403);
+      assert.equal(body.success, false);
+      assert.ok(body.message.includes("blocked"));
+    });
+
+    it("should prevent sending REST messages when blocked", async () => {
+      mockBlocks.push({ blocker: mockBuyer._id, blocked: mockSeller._id });
+
+      const res = await fetch(`${baseUrl}/api/chat/conversations/${testConvId}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${buyerToken}`,
+        },
+        body: JSON.stringify({ content: "Hello?" }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 403);
+      assert.equal(body.success, false);
+      assert.ok(body.message.includes("blocked"));
+    });
+
+    it("should unblock a user successfully", async () => {
+      mockBlocks.push({ blocker: mockBuyer._id, blocked: mockSeller._id });
+
+      const res = await fetch(`${baseUrl}/api/chat/unblock`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${buyerToken}`,
+        },
+        body: JSON.stringify({ userId: mockSeller._id }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 200);
+      assert.equal(body.success, true);
+
+      const isBlocked = await Block.isBlocked(mockBuyer._id, mockSeller._id);
+      assert.equal(isBlocked, false);
+    });
+  });
+
+  // ==========================================================
+  // 6. MODERATION REPORTING SYSTEM
+  // ==========================================================
+  describe("6. Moderation Reporting System", () => {
+    beforeEach(() => {
+      mockReports = [];
+    });
+
+    it("should reject self-reporting", async () => {
+      const res = await fetch(`${baseUrl}/api/chat/report`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${buyerToken}`,
+        },
+        body: JSON.stringify({
+          reportedUserId: mockBuyer._id,
+          reason: "spam",
+        }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 400);
+      assert.equal(body.success, false);
+      assert.ok(body.message.includes("cannot report yourself"));
+    });
+
+    it("should reject invalid report categories", async () => {
+      const res = await fetch(`${baseUrl}/api/chat/report`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${buyerToken}`,
+        },
+        body: JSON.stringify({
+          reportedUserId: mockSeller._id,
+          reason: "not_a_valid_reason",
+        }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 400);
+      assert.equal(body.success, false);
+      assert.ok(body.message.includes("Invalid reason"));
+    });
+
+    it("should successfully submit a valid report", async () => {
+      const res = await fetch(`${baseUrl}/api/chat/report`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${buyerToken}`,
+        },
+        body: JSON.stringify({
+          reportedUserId: mockSeller._id,
+          conversationId: "66e01234567890abcdef1001",
+          reason: "spam",
+          description: "Seller is spamming offers.",
+        }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 201);
+      assert.equal(body.success, true);
+      assert.ok(body.reportId);
+      assert.equal(mockReports.length, 1);
+    });
+
+    it("should enforce deduplication on repeated reports within 24 hours", async () => {
+      await fetch(`${baseUrl}/api/chat/report`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${buyerToken}`,
+        },
+        body: JSON.stringify({
+          reportedUserId: mockSeller._id,
+          reason: "harassment",
+        }),
+      });
+
+      const res = await fetch(`${baseUrl}/api/chat/report`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${buyerToken}`,
+        },
+        body: JSON.stringify({
+          reportedUserId: mockSeller._id,
+          reason: "harassment",
+        }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 409);
+      assert.equal(body.success, false);
+      assert.ok(body.message.includes("already submitted a pending report"));
+    });
+  });
+
+  // ==========================================================
+  // 7. SOCKET AUTHORIZATION & REAL-TIME SECURITY
+  // ==========================================================
+  describe("7. Socket Authorization & Real-Time Security", () => {
+    let buyerClient;
+    let strangerClient;
+    const testConvId = "66e01234567890abcdef1001";
+
+    before((t, done) => {
+      mockBlocks = [];
+      Conversation.findById = async (id) => {
+        if (id?.toString() === testConvId) {
+          return {
+            _id: testConvId,
+            participants: [mockBuyer._id, mockSeller._id],
+          };
+        }
+        return null;
+      };
+
+      buyerClient = ioClient(socketUrl, {
+        transports: ["websocket"],
+        auth: { token: buyerToken },
+      });
+
+      strangerClient = ioClient(socketUrl, {
+        transports: ["websocket"],
+        auth: { token: strangerToken },
+      });
+
+      let connected = 0;
+      const onConnect = () => {
+        connected++;
+        if (connected === 2) done();
+      };
+
+      buyerClient.on("connect", onConnect);
+      strangerClient.on("connect", onConnect);
+    });
+
+    after(() => {
+      if (buyerClient) buyerClient.disconnect();
+      if (strangerClient) strangerClient.disconnect();
+    });
+
+    it("should prevent non-participants from joining conversation room", (t, done) => {
+      strangerClient.emit("join_conversation", { conversationId: testConvId }, (res) => {
+        try {
+          assert.equal(res.success, false);
+          assert.equal(res.error, "Unauthorized");
+          done();
+        } catch (err) {
+          done(err);
+        }
+      });
+    });
+
+    it("should reject socket message sending when users are blocked", (t, done) => {
+      mockBlocks.push({ blocker: mockSeller._id, blocked: mockBuyer._id });
+
+      buyerClient.emit(
+        "send_message",
+        {
+          conversationId: testConvId,
+          content: "Can you hear me?",
+          messageType: "text",
+        },
+        (res) => {
+          try {
+            assert.equal(res.success, false);
+            assert.equal(res.error, "Blocked");
+            mockBlocks = [];
+            done();
+          } catch (err) {
+            mockBlocks = [];
+            done(err);
+          }
+        }
+      );
+    });
+
+    it("should emit unread_count_updated event to reader's personal room on message read", (t, done) => {
+      Message.updateMany = async () => ({ modifiedCount: 1 });
+      Message.countDocuments = async () => 0;
+
+      buyerClient.once("unread_count_updated", (data) => {
+        try {
+          assert.equal(data.unreadTotal, 0);
+          done();
+        } catch (err) {
+          done(err);
+        }
+      });
+
+      buyerClient.emit("message_read", { conversationId: testConvId });
     });
   });
 });

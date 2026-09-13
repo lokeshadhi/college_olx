@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import MainLayout from "../layouts/MainLayout.jsx";
 import ConversationList from "../components/chat/ConversationList.jsx";
 import ChatWindow from "../components/chat/ChatWindow.jsx";
+import ReportModal from "../components/chat/ReportModal.jsx";
 import Loader from "../components/Loader.jsx";
 import { useAuth } from "../hooks/useAuth.js";
 import { useSocket } from "../hooks/useSocket.js";
@@ -14,7 +15,7 @@ const Chat = () => {
   const { conversationId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { socket, isConnected } = useSocket();
+  const { socket, isConnected, setActiveConversation: setGlobalActiveConversation, fetchUnreadCount } = useSocket();
 
   const [conversations, setConversations] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
@@ -24,6 +25,8 @@ const Chat = () => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [isOtherTyping, setIsOtherTyping] = useState(false);
+  const [blockStatus, setBlockStatus] = useState({ isBlocked: false, blockedByMe: false, blockedByUser: false });
+  const [reportModalOpen, setReportModalOpen] = useState(false);
 
   // Load all user conversations
   const loadConversations = useCallback(async () => {
@@ -43,7 +46,7 @@ const Chat = () => {
     loadConversations();
   }, [loadConversations]);
 
-  // Load active conversation details and messages
+  // Load active conversation details, messages, and block relationship
   const loadActiveConversation = useCallback(
     async (convId, pageNum = 1) => {
       try {
@@ -52,6 +55,15 @@ const Chat = () => {
           if (convRes.success) {
             setActiveConversation(convRes.data);
           }
+          // Fetch block relationship for this conversation
+          chatService
+            .getConversationBlockStatus(convId)
+            .then((res) => {
+              if (res?.success) {
+                setBlockStatus(res.data);
+              }
+            })
+            .catch(() => {});
         }
 
         const msgRes = await chatService.getMessages(convId, pageNum, 30);
@@ -70,6 +82,9 @@ const Chat = () => {
         if (socket && isConnected) {
           socket.emit("message_read", { conversationId: convId });
         }
+        if (fetchUnreadCount) {
+          fetchUnreadCount();
+        }
 
         // Reset unread count for this conversation in the sidebar list
         setConversations((prev) =>
@@ -79,12 +94,15 @@ const Chat = () => {
         toast.error("Failed to load chat messages");
       }
     },
-    [socket, isConnected]
+    [socket, isConnected, fetchUnreadCount]
   );
 
-  // Sync route param with active conversation
+  // Sync route param with active conversation and global socket context
   useEffect(() => {
     if (conversationId) {
+      if (setGlobalActiveConversation) {
+        setGlobalActiveConversation(conversationId);
+      }
       loadActiveConversation(conversationId, 1);
     } else if (conversations.length > 0 && window.innerWidth > 768) {
       // On desktop, auto-open the first conversation if none selected in URL
@@ -92,8 +110,18 @@ const Chat = () => {
     } else {
       setActiveConversation(null);
       setMessages([]);
+      setBlockStatus({ isBlocked: false, blockedByMe: false, blockedByUser: false });
+      if (setGlobalActiveConversation) {
+        setGlobalActiveConversation(null);
+      }
     }
-  }, [conversationId, conversations.length, loadActiveConversation, navigate]);
+
+    return () => {
+      if (setGlobalActiveConversation) {
+        setGlobalActiveConversation(null);
+      }
+    };
+  }, [conversationId, conversations.length, loadActiveConversation, navigate, setGlobalActiveConversation]);
 
   // Socket room management and real-time listeners
   useEffect(() => {
@@ -110,10 +138,11 @@ const Chat = () => {
           return [...prev, newMsg];
         });
 
-        // Mark as read immediately if current user is the receiver
+        // Mark as read immediately if current user is the receiver and viewing
         if (newMsg.receiver === user?._id) {
           socket.emit("message_read", { conversationId });
-          chatService.markAsRead(conversationId).catch(() => {});
+          chatService.markMessagesAsRead(conversationId).catch(() => {});
+          if (fetchUnreadCount) fetchUnreadCount();
         }
       }
 
@@ -177,17 +206,21 @@ const Chat = () => {
       socket.off("user_stop_typing", handleUserStopTyping);
       setIsOtherTyping(false);
     };
-  }, [socket, isConnected, conversationId, user?._id]);
+  }, [socket, isConnected, conversationId, user?._id, fetchUnreadCount]);
 
   // Sending message (text or image)
   const handleSendMessage = async ({ content, imageFile }) => {
     if (!conversationId) return;
 
+    if (blockStatus?.isBlocked) {
+      throw new Error("Cannot send messages. Communication is blocked.");
+    }
+
     let imageUrl = "";
     let messageType = "text";
 
     if (imageFile) {
-      const uploadRes = await chatService.uploadChatImage(imageFile);
+      const uploadRes = await chatService.uploadChatImage(imageFile, conversationId);
       if (!uploadRes.success) {
         throw new Error(uploadRes.message || "Image upload failed");
       }
@@ -228,6 +261,7 @@ const Chat = () => {
   // Throttled typing event dispatcher
   const handleTyping = (isTyping) => {
     if (!socket || !isConnected || !conversationId) return;
+    if (blockStatus?.isBlocked) return;
     if (isTyping) {
       socket.emit("typing_start", { conversationId });
     } else {
@@ -252,6 +286,100 @@ const Chat = () => {
 
   const handleBackToConversations = () => {
     navigate("/chat");
+  };
+
+  const currentUserId = (user?._id || user?.id || "").toString();
+
+  // Robustly extract other participant from activeConversation, sidebar list, or product
+  const otherUser = useMemo(() => {
+    const activeParticipants = activeConversation?.participants || [];
+    let found = activeParticipants.find((p) => {
+      const pId = (p?._id || p?.id || p || "").toString();
+      return pId && pId !== currentUserId;
+    });
+
+    if (!found || typeof found === "string") {
+      const convInList = conversations.find(
+        (c) => (c._id || c.id)?.toString() === conversationId
+      );
+      const listParticipant = convInList?.participants?.find((p) => {
+        const pId = (p?._id || p?.id || p || "").toString();
+        return pId && pId !== currentUserId && typeof p === "object" && p !== null;
+      });
+      if (listParticipant) {
+        found = listParticipant;
+      }
+    }
+
+    if (!found) {
+      const product = activeConversation?.product;
+      const ownerId = (product?.owner?._id || product?.owner || "").toString();
+      if (ownerId && ownerId !== currentUserId) {
+        found = {
+          _id: ownerId,
+          id: ownerId,
+          name: product?.seller?.name || "Student",
+          phone: product?.seller?.phone,
+          department: product?.seller?.department,
+        };
+      }
+    }
+
+    if (typeof found === "object" && found !== null) {
+      const idStr = (found._id || found.id || "").toString();
+      return {
+        ...found,
+        _id: idStr,
+        id: idStr,
+      };
+    } else if (found) {
+      const idStr = found.toString();
+      return {
+        _id: idStr,
+        id: idStr,
+        name: "Student",
+      };
+    }
+
+    return null;
+  }, [activeConversation, conversations, conversationId, currentUserId]);
+
+  const handleBlockUser = async () => {
+    const targetUserId = (otherUser?._id || otherUser?.id || "").toString();
+    if (!targetUserId) {
+      toast.error("Unable to identify student to block. Please select a conversation first.");
+      return;
+    }
+    if (targetUserId === currentUserId) {
+      toast.error("You cannot block yourself");
+      return;
+    }
+    try {
+      const res = await chatService.blockUser(targetUserId);
+      if (res?.success) {
+        toast.success(`Blocked ${otherUser?.name || "student"} successfully`);
+        setBlockStatus({ isBlocked: true, blockedByMe: true, blockedByUser: false });
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || "Failed to block user");
+    }
+  };
+
+  const handleUnblockUser = async () => {
+    const targetUserId = (otherUser?._id || otherUser?.id || "").toString();
+    if (!targetUserId) {
+      toast.error("Unable to identify student to unblock. Please select a conversation first.");
+      return;
+    }
+    try {
+      const res = await chatService.unblockUser(targetUserId);
+      if (res?.success) {
+        toast.success(`Unblocked ${otherUser?.name || "student"} successfully`);
+        setBlockStatus({ isBlocked: false, blockedByMe: false, blockedByUser: false });
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || "Failed to unblock user");
+    }
   };
 
   if (loading) {
@@ -289,12 +417,25 @@ const Chat = () => {
               hasMore={hasMore}
               loadingMore={loadingMore}
               onBack={handleBackToConversations}
+              blockStatus={blockStatus}
+              onBlockUser={handleBlockUser}
+              onUnblockUser={handleUnblockUser}
+              onReportUser={() => setReportModalOpen(true)}
             />
           </div>
         </div>
       </div>
+
+      {/* Moderation Report Modal */}
+      <ReportModal
+        isOpen={reportModalOpen}
+        onClose={() => setReportModalOpen(false)}
+        reportedUser={otherUser}
+        conversationId={conversationId}
+      />
     </MainLayout>
   );
 };
 
 export default Chat;
+
