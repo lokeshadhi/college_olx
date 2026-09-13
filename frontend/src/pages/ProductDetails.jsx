@@ -6,7 +6,6 @@ import {
   FiHome as FiDept,
   FiMapPin,
   FiAlertTriangle,
-  FiShield,
   FiMessageSquare,
   FiCheckCircle,
   FiStar,
@@ -284,34 +283,7 @@ const ProductDetails = () => {
             <div className="details-badges">
               <span className={`badge ${isSold ? "badge-sold" : "badge-available"}`}>{product.status}</span>
               <span className="badge badge-condition">{product.condition}</span>
-              {product.securityAssessment?.riskLevel === "LOW" && (
-                <span className="badge" style={{ background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                  <FiShield /> Campus Verified
-                </span>
-              )}
             </div>
-
-            {product.securityAssessment && (product.securityAssessment.riskLevel === "HIGH" || product.securityAssessment.riskLevel === "CRITICAL") && (
-              <div
-                style={{
-                  background: "#fef2f2",
-                  border: "1px solid #f87171",
-                  borderRadius: "var(--radius-sm, 8px)",
-                  padding: "12px 16px",
-                  margin: "16px 0",
-                  color: "#991b1b",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 600 }}>
-                  <FiAlertTriangle /> Security Warning: High Risk Listing
-                </div>
-                <p style={{ margin: "6px 0 0", fontSize: "0.85rem", lineHeight: 1.4 }}>
-                  Our automated security scanner flagged potential risk in this listing
-                  {product.securityAssessment.flags?.length ? `: ${product.securityAssessment.flags.join(", ")}` : ""}.
-                  Never send advance payments or wire money. Meet on campus in daylight hours.
-                </p>
-              </div>
-            )}
 
             <p className="details-desc">{product.description}</p>
 

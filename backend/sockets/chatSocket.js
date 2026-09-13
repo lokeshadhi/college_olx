@@ -1,7 +1,6 @@
 import socketAuth from "../middleware/socketAuth.js";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
-import { aiChatSecurityService } from "../services/aiChatSecurityService.js";
 import { logSecurityEvent, SECURITY_EVENTS } from "../utils/securityLogger.js";
 
 // In-memory presence tracker: maps userId -> Set of active socketIds (for multi-tab support)
@@ -178,12 +177,6 @@ export const initChatSocket = (io) => {
           .find((p) => p.toString() !== userId)
           ?.toString();
 
-        // Optional non-blocking AI scam screening
-        let securityAnalysis = { risk: "low", category: "normal", reason: "" };
-        if (messageType === "text") {
-          securityAnalysis = await aiChatSecurityService.analyzeMessageSecurity(content);
-        }
-
         // Save to MongoDB BEFORE considering message sent
         const message = await Message.create({
           conversation: conversationId,
@@ -192,7 +185,6 @@ export const initChatSocket = (io) => {
           content: messageType === "text" ? content.trim() : "",
           messageType,
           imageUrl: messageType === "image" ? imageUrl : "",
-          securityAnalysis,
         });
 
         // Update conversation summary

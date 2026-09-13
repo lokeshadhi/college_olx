@@ -445,26 +445,6 @@
   color: var(--color-gold);
 }
 
-/* AI Scam Warning Card inside Message Bubble */
-.message-scam-alert {
-  background: #fef2f2;
-  border: 1px solid #f87171;
-  border-radius: var(--radius-sm);
-  padding: 8px 10px;
-  margin-top: 6px;
-  color: #991b1b;
-  font-size: 0.78rem;
-  line-height: 1.35;
-}
-
-.message-scam-alert-header {
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-bottom: 2px;
-}
-
 /* Typing Indicator Animation */
 .typing-indicator-row {
   display: flex;
@@ -495,40 +475,6 @@
 @keyframes typingBounce {
   0%, 80%, 100% { transform: scale(0); }
   40% { transform: scale(1); }
-}
-
-/* AI Smart Reply Suggestions Bar */
-.smart-reply-bar {
-  display: flex;
-  gap: 8px;
-  padding: 0.5rem 1.25rem 0.25rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.smart-reply-bar::-webkit-scrollbar {
-  display: none;
-}
-
-.smart-reply-chip {
-  background: var(--color-paper);
-  border: 1px solid var(--color-gold);
-  color: var(--color-ink);
-  font-size: 0.78rem;
-  padding: 5px 12px;
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all var(--transition);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.smart-reply-chip:hover {
-  background: var(--color-gold);
-  color: #16213E;
-  font-weight: 600;
 }
 
 /* Message Input Area */

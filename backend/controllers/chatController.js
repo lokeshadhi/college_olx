@@ -1,7 +1,6 @@
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import Product from "../models/Product.js";
-import { aiChatSecurityService } from "../services/aiChatSecurityService.js";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs/promises";
 
@@ -239,12 +238,6 @@ export const sendMessage = async (req, res, next) => {
       .find((p) => p.toString() !== userId)
       ?.toString();
 
-    // AI risk analysis for text
-    let securityAnalysis = { risk: "low", category: "normal", reason: "" };
-    if (messageType === "text") {
-      securityAnalysis = await aiChatSecurityService.analyzeMessageSecurity(content);
-    }
-
     const message = await Message.create({
       conversation: conversationId,
       sender: userId,
@@ -252,7 +245,6 @@ export const sendMessage = async (req, res, next) => {
       content: messageType === "text" ? content.trim() : "",
       messageType,
       imageUrl: messageType === "image" ? imageUrl : "",
-      securityAnalysis,
     });
 
     const preview = messageType === "image" ? "📷 Photo" : content.trim().slice(0, 100);
@@ -367,48 +359,6 @@ export const uploadChatImage = async (req, res, next) => {
       await fs.unlink(req.file.path).catch(() => {});
     }
 
-    next(error);
-  }
-};
-// @desc    Generate AI Smart Replies for a conversation
-// @route   POST /api/chat/conversations/:conversationId/ai-smart-reply
-// @access  Private
-export const getAiSmartReply = async (req, res, next) => {
-  try {
-    const { conversationId } = req.params;
-    const userId = req.user._id.toString();
-
-    const conversation = await Conversation.findById(conversationId).populate("product", "title");
-    if (!conversation) {
-      return res.status(404).json({ success: false, message: "Conversation not found" });
-    }
-
-    const isParticipant = conversation.participants.some(
-      (p) => p.toString() === userId
-    );
-    if (!isParticipant) {
-      return res.status(403).json({ success: false, message: "Not authorized" });
-    }
-
-    const recentMessages = await Message.find({ conversation: conversationId })
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .populate("sender", "name")
-      .lean();
-
-    const suggestions = await aiChatSecurityService.generateSmartReplies({
-      productTitle: conversation.product?.title || "Item",
-      recentMessages: recentMessages.reverse().map((m) => ({
-        senderName: m.sender?.name || "User",
-        content: m.content,
-      })),
-    });
-
-    res.status(200).json({
-      success: true,
-      data: suggestions,
-    });
-  } catch (error) {
     next(error);
   }
 };

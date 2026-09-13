@@ -7,7 +7,6 @@ import User from "../models/User.js";
 import Product from "../models/Product.js";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
-import { aiChatSecurityService } from "../services/aiChatSecurityService.js";
 import { isUserOnline } from "../sockets/chatSocket.js";
 
 describe("CampusX Real-Time Chat & Socket.IO Test Suite", () => {
@@ -61,7 +60,6 @@ describe("CampusX Real-Time Chat & Socket.IO Test Suite", () => {
   before(async () => {
     process.env.NODE_ENV = "test";
     process.env.JWT_SECRET = "chat_test_secret_key_123456789";
-    process.env.GEMINI_API_KEY = "test_gemini_key";
 
     buyerToken = jwt.sign({ userId: mockBuyer._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
     sellerToken = jwt.sign({ userId: mockSeller._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
@@ -497,77 +495,6 @@ describe("CampusX Real-Time Chat & Socket.IO Test Suite", () => {
           }, 50);
         });
       });
-    });
-  });
-
-  // ==========================================================
-  // 5. AI CHAT SCAM SCREENING & SMART REPLIES
-  // ==========================================================
-  describe("5. AI Chat Scam Screening & Smart Replies", () => {
-    it("should classify suspicious payment or OTP demands as high risk", async () => {
-      const originalGenerate = aiChatSecurityService.generateSecurityAssessment;
-      aiChatSecurityService.generateSecurityAssessment = async () => {
-        return {
-          text: JSON.stringify({
-            risk: "high",
-            category: "otp_theft",
-            reason: "User requested one-time password code",
-          }),
-        };
-      };
-
-      try {
-        const scamMessage = "Send me your OTP right now so I can send the GPay deposit.";
-        const result = await aiChatSecurityService.analyzeMessageSecurity(scamMessage);
-
-        assert.equal(result.risk, "high");
-        assert.equal(result.category, "otp_theft");
-      } finally {
-        aiChatSecurityService.generateSecurityAssessment = originalGenerate;
-      }
-    });
-
-    it("should fail-open gracefully when Gemini fails or is unreachable", async () => {
-      const originalGenerate = aiChatSecurityService.generateSecurityAssessment;
-      aiChatSecurityService.generateSecurityAssessment = async () => {
-        throw new Error("503 Service Unavailable");
-      };
-
-      try {
-        const result = await aiChatSecurityService.analyzeMessageSecurity("Can I pay via upi link?");
-        assert.equal(result.risk, "unknown");
-        assert.equal(result.category, "normal");
-      } finally {
-        aiChatSecurityService.generateSecurityAssessment = originalGenerate;
-      }
-    });
-
-    it("should generate contextual smart replies", async () => {
-      const originalSmart = aiChatSecurityService.generateSmartReplyContent;
-      aiChatSecurityService.generateSmartReplyContent = async () => {
-        return {
-          text: JSON.stringify({
-            suggestions: [
-              "Yes, it is still available.",
-              "Can you meet at the library?",
-              "The price is fixed.",
-            ],
-          }),
-        };
-      };
-
-      try {
-        const suggestions = await aiChatSecurityService.generateSmartReplies({
-          productTitle: "Calculator",
-          recentMessages: [{ senderName: "Buyer", content: "Is it available?" }],
-        });
-
-        assert.ok(Array.isArray(suggestions));
-        assert.equal(suggestions.length, 3);
-        assert.equal(suggestions[0], "Yes, it is still available.");
-      } finally {
-        aiChatSecurityService.generateSmartReplyContent = originalSmart;
-      }
     });
   });
 });

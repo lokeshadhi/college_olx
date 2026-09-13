@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import Review from "../models/Review.js";
 import Transaction from "../models/Transaction.js";
 import User from "../models/User.js";
-import { moderateReview } from "../services/aiReviewModerationService.js";
 import { logSecurityEvent, SECURITY_EVENTS } from "../utils/securityLogger.js";
 
 // @desc    Create a new transaction review
@@ -95,9 +94,7 @@ export const createReview = async (req, res, next) => {
       });
     }
 
-    // Optional Gemini AI Moderation (fail-open)
     const trimmedReview = review ? review.trim() : "";
-    const moderation = await moderateReview(trimmedReview);
 
     const newReview = new Review({
       reviewer: currentUserId,
@@ -107,8 +104,8 @@ export const createReview = async (req, res, next) => {
       role,
       rating: numericRating,
       review: trimmedReview,
-      moderationStatus: moderation.status,
-      moderationReason: moderation.reason,
+      moderationStatus: "APPROVED",
+      moderationReason: "",
     });
 
     await newReview.save();
@@ -405,10 +402,9 @@ export const updateReview = async (req, res, next) => {
           message: "Review cannot exceed 500 characters.",
         });
       }
-      const moderation = await moderateReview(trimmed);
       reviewDoc.review = trimmed;
-      reviewDoc.moderationStatus = moderation.status;
-      reviewDoc.moderationReason = moderation.reason;
+      reviewDoc.moderationStatus = "APPROVED";
+      reviewDoc.moderationReason = "";
     }
 
     await reviewDoc.save();

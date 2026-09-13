@@ -4,7 +4,6 @@ import toast from "react-hot-toast";
 import { FiUploadCloud, FiX } from "react-icons/fi";
 import MainLayout from "../layouts/MainLayout.jsx";
 import Button from "../components/Button.jsx";
-import AiAssistantCard from "../components/AiAssistantCard.jsx";
 import { createProduct } from "../services/productService.js";
 import { CATEGORIES, CONDITIONS } from "../utils/constants.js";
 
@@ -39,26 +38,6 @@ const SellProduct = () => {
   const removeImage = (index) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
     setPreviews((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  // Callback when user clicks "Use Suggestions in Form" from AI card
-  const handleApplyAiSuggestions = ({ title, description, category, condition, price, tags }) => {
-    let finalDescription = description;
-    if (tags && tags.length > 0) {
-      const tagFooter = `\n\nTags: ${tags.map((t) => `#${t}`).join(" ")}`;
-      if (!finalDescription.includes("Tags:")) {
-        finalDescription += tagFooter;
-      }
-    }
-
-    setForm((prev) => ({
-      ...prev,
-      title: title || prev.title,
-      description: finalDescription || prev.description,
-      category: category || prev.category,
-      condition: condition || prev.condition,
-      price: price || prev.price,
-    }));
   };
 
   const handleSubmit = async (e) => {
@@ -125,20 +104,13 @@ const SellProduct = () => {
             )}
           </div>
 
-          {/* Step 2: AI Listing Assistant */}
-          <AiAssistantCard
-            images={images}
-            onApplySuggestions={handleApplyAiSuggestions}
-            disabled={loading}
-          />
-
-          {/* Step 3: Review & Edit Listing Details */}
+          {/* Step 2: Listing Details */}
           <div style={{ marginTop: "12px", marginBottom: "16px" }}>
             <h3 style={{ fontSize: "1.05rem", color: "var(--color-ink)", margin: "0 0 6px" }}>
-              2. Listing Details (Review & Edit)
+              2. Listing Details
             </h3>
             <p style={{ fontSize: "0.84rem", color: "var(--color-text-muted)", margin: 0 }}>
-              All fields are fully editable. The listing will only be published when you click Submit Listing below.
+              Fill in the details for your item. The listing will only be published when you click Submit Listing below.
             </p>
           </div>
 

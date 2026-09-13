@@ -1,7 +1,6 @@
 import Product from "../models/Product.js";
 import Transaction from "../models/Transaction.js";
 import { escapeRegex } from "../middleware/securitySanitizer.js";
-import { aiSecurityService } from "../services/aiSecurityService.js";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs/promises";
 
@@ -137,20 +136,6 @@ export const createProduct = async (req, res, next) => {
   )
 );
 
-    // Intelligent AI security screening (non-blocking / fails open)
-    const securityAssessment = await aiSecurityService.analyzeListingSecurity({
-      title,
-      description,
-      category,
-      price,
-      location,
-      seller: {
-        name: req.user.name,
-        phone: req.user.phone,
-        department: req.user.department,
-      },
-    });
-
     const product = await Product.create({
       title,
       description,
@@ -166,7 +151,6 @@ export const createProduct = async (req, res, next) => {
         department: req.user.department,
         isEmailVerified: Boolean(req.user.isEmailVerified),
       },
-      securityAssessment,
     });
 
     res.status(201).json({ success: true, message: "Product listed successfully", data: product });
@@ -204,18 +188,6 @@ export const updateProduct = async (req, res, next) => {
 
   product.images = [...product.images, ...newImages];
 }
-
-    // Re-screen if title or description was modified
-    if (req.body.title || req.body.description) {
-      product.securityAssessment = await aiSecurityService.analyzeListingSecurity({
-        title: product.title,
-        description: product.description,
-        category: product.category,
-        price: product.price,
-        location: product.location,
-        seller: product.seller,
-      });
-    }
 
     const updatedProduct = await product.save();
 

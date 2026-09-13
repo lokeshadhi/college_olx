@@ -68,25 +68,6 @@ export const passwordResetLimiter = rateLimit({
 });
 
 /**
- * AI endpoint rate limiter:
- * 10 requests per 10 minutes per authenticated user (or IP if unauthenticated).
- * Safeguards Gemini API quotas and server resources.
- */
-export const aiLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: Number(process.env.RATE_LIMIT_AI_MAX) || 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => {
-    // Key by user ID if logged in; otherwise fall back to IPv6-safe IP
-    return req.user?._id ? `user_${req.user._id}` : ipKeyGenerator(req.ip);
-  },
-  handler: createStandardHandler(
-    "AI request limit reached. You can make up to 10 AI listing requests per 10 minutes."
-  ),
-});
-
-/**
  * Chat REST API rate limiter:
  * 60 requests per minute per IP to prevent automated scraping or spam.
  */

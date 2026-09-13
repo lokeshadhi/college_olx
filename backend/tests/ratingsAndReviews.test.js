@@ -7,7 +7,6 @@ import User from "../models/User.js";
 import Product from "../models/Product.js";
 import Transaction from "../models/Transaction.js";
 import Review from "../models/Review.js";
-import { moderateReview } from "../services/aiReviewModerationService.js";
 
 describe("CampusX Feature #19: Ratings & Reviews Test Suite", () => {
   let server;
@@ -848,16 +847,6 @@ describe("CampusX Feature #19: Ratings & Reviews Test Suite", () => {
       assert.equal(body.count, 1);
       assert.equal(body.data[0].targetRole, "seller");
       assert.equal(body.data[0].targetUser.name, "Priya Patel");
-    });
-  });
-
-  // ==========================================
-  // 6. GEMINI AI REVIEW MODERATION & FAIL-OPEN
-  // ==========================================
-  describe("6. AI Content Moderation & Resilience", () => {
-    it("should approve normal review and fail-open gracefully when Gemini is offline or mock API key used", async () => {
-      const mod = await moderateReview("Super friendly student, easy pickup near Library.");
-      assert.equal(mod.status, "APPROVED");
     });
   });
 

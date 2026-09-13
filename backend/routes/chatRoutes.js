@@ -7,7 +7,6 @@ import {
   sendMessage,
   markMessagesAsRead,
   uploadChatImage,
-  getAiSmartReply,
 } from "../controllers/chatController.js";
 import { protect } from "../middleware/auth.js";
 import { chatLimiter } from "../middleware/rateLimiter.js";
@@ -29,8 +28,6 @@ router.get("/conversations/:conversationId/messages", getMessages);
 router.post("/conversations/:conversationId/messages", sendMessage);
 router.post("/conversations/:conversationId/read", markMessagesAsRead);
 
-// AI smart replies
-router.post("/conversations/:conversationId/ai-smart-reply", getAiSmartReply);
 
 // Secure image upload for chat attachment
 router.post("/upload-image", secureChatUpload, uploadChatImage);

@@ -67,30 +67,6 @@ const productSchema = new mongoose.Schema(
       enum: ["Available", "Sold"],
       default: "Available",
     },
-    // AI-powered secondary security analysis results
-    securityAssessment: {
-      riskScore: {
-        type: Number,
-        default: 0,
-      },
-      riskLevel: {
-        type: String,
-        enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL", "UNAVAILABLE"],
-        default: "LOW",
-      },
-      flags: {
-        type: [String],
-        default: [],
-      },
-      reason: {
-        type: String,
-        default: "No significant suspicious patterns detected.",
-      },
-      analyzedAt: {
-        type: Date,
-        default: Date.now,
-      },
-    },
   },
   { timestamps: true }
 );

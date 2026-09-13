@@ -24,8 +24,6 @@ const Chat = () => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [isOtherTyping, setIsOtherTyping] = useState(false);
-  const [smartReplies, setSmartReplies] = useState([]);
-  const [smartReplyLoading, setSmartReplyLoading] = useState(false);
 
   // Load all user conversations
   const loadConversations = useCallback(async () => {
@@ -248,22 +246,6 @@ const Chat = () => {
     }
   };
 
-  // Generate AI Smart Replies
-  const handleRequestSmartReplies = async () => {
-    if (!conversationId || smartReplyLoading) return;
-    setSmartReplyLoading(true);
-    try {
-      const res = await chatService.getAiSmartReplies(conversationId);
-      if (res.success && Array.isArray(res.data)) {
-        setSmartReplies(res.data);
-      }
-    } catch (error) {
-      toast.error("AI reply unavailable");
-    } finally {
-      setSmartReplyLoading(false);
-    }
-  };
-
   const handleSelectConversation = (id) => {
     navigate(`/chat/${id}`);
   };
@@ -306,9 +288,6 @@ const Chat = () => {
               onLoadMore={handleLoadMore}
               hasMore={hasMore}
               loadingMore={loadingMore}
-              smartReplies={smartReplies}
-              onRequestSmartReplies={handleRequestSmartReplies}
-              smartReplyLoading={smartReplyLoading}
               onBack={handleBackToConversations}
             />
           </div>

@@ -62,14 +62,6 @@ export const uploadChatImage = async (file) => {
   return response.data;
 };
 
-/**
- * Fetch AI smart reply suggestions for a conversation
- */
-export const getAiSmartReplies = async (conversationId) => {
-  const response = await api.post(`/chat/conversations/${conversationId}/ai-smart-reply`);
-  return response.data;
-};
-
 export const chatService = {
   getConversations,
   getConversationById,
@@ -78,7 +70,6 @@ export const chatService = {
   sendMessage,
   markMessagesAsRead,
   uploadChatImage,
-  getAiSmartReplies,
 };
 
 export default chatService;

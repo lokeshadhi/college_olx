@@ -17,9 +17,6 @@ const ChatWindow = ({
   onLoadMore,
   hasMore = false,
   loadingMore = false,
-  smartReplies = [],
-  onRequestSmartReplies,
-  smartReplyLoading = false,
   onBack,
 }) => {
   const { user } = useAuth();
@@ -136,13 +133,10 @@ const ChatWindow = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Message Input with Image Upload & AI Reply */}
+      {/* Message Input with Image Upload */}
       <MessageInput
         onSendMessage={onSendMessage}
         onTyping={onTyping}
-        smartReplies={smartReplies}
-        onRequestSmartReplies={onRequestSmartReplies}
-        smartReplyLoading={smartReplyLoading}
       />
 
       {/* Image Lightbox Modal */}

@@ -1,14 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { FiSend, FiImage, FiX } from "react-icons/fi";
-import { HiSparkles } from "react-icons/hi2";
 import toast from "react-hot-toast";
 
 const MessageInput = ({
   onSendMessage,
   onTyping,
-  smartReplies = [],
-  onRequestSmartReplies,
-  smartReplyLoading = false,
   disabled = false,
 }) => {
   const [content, setContent] = useState("");
@@ -112,34 +108,8 @@ const MessageInput = ({
     }
   };
 
-  const handleApplySmartReply = (reply) => {
-    setContent(reply);
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-    }
-  };
-
   return (
     <div>
-      {/* Optional AI Smart Reply Chips */}
-      {smartReplies && smartReplies.length > 0 && (
-        <div className="smart-reply-bar">
-          <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", alignSelf: "center" }}>
-            Suggestions:
-          </span>
-          {smartReplies.map((reply, idx) => (
-            <button
-              key={idx}
-              type="button"
-              className="smart-reply-chip"
-              onClick={() => handleApplySmartReply(reply)}
-            >
-              {reply}
-            </button>
-          ))}
-        </div>
-      )}
-
       <div className="chat-input-area">
         {/* Hidden file input */}
         <input
@@ -160,20 +130,6 @@ const MessageInput = ({
         >
           <FiImage />
         </button>
-
-        {/* Optional AI Reply button */}
-        {onRequestSmartReplies && (
-          <button
-            type="button"
-            className="chat-attach-btn"
-            title="Generate AI Reply Suggestions"
-            onClick={onRequestSmartReplies}
-            disabled={disabled || smartReplyLoading}
-            style={{ color: smartReplyLoading ? "var(--color-gold)" : undefined }}
-          >
-            <HiSparkles />
-          </button>
-        )}
 
         {/* Input and preview container */}
         <div className="chat-input-wrapper">
