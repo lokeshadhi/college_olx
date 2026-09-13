@@ -58,28 +58,29 @@ const ProductReviewsSection = ({ productId, seller = {} }) => {
   }, [productId, sellerId]);
 
   return (
-    <section className="section product-reviews-section" style={{ marginTop: "40px" }}>
+    <section className="product-reviews-section" style={{ marginTop: "40px", width: "100%" }}>
       <div
-        className="section-head"
         style={{
+          width: "100%",
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
+          alignItems: "flex-end",
           marginBottom: "20px",
           textAlign: "left",
           flexWrap: "wrap",
-          gap: "12px",
+          gap: "14px",
         }}
       >
-        <div>
-          <h2 style={{ margin: 0, fontSize: "1.4rem" }}>
+        <div style={{ textAlign: "left" }}>
+          <h2 style={{ margin: 0, fontSize: "1.45rem", textAlign: "left", color: "var(--color-ink, #16213E)" }}>
             {isFallback ? `Seller Reputation & Reviews (${seller.name || "Seller"})` : "Product Reviews"}
           </h2>
           <p
             style={{
-              margin: "4px 0 0",
-              fontSize: "0.85rem",
+              margin: "6px 0 0",
+              fontSize: "0.88rem",
               color: "var(--color-text-muted, #5B6478)",
+              textAlign: "left",
             }}
           >
             {isFallback

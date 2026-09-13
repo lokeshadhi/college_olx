@@ -760,9 +760,9 @@ const ProductDetails = () => {
         />
 
         {related.length > 0 && (
-          <section className="section">
-            <div className="section-head" style={{ textAlign: "left", margin: "0 0 24px" }}>
-              <h2>Related Products</h2>
+          <section className="section" style={{ padding: "40px 0 0" }}>
+            <div style={{ textAlign: "left", margin: "0 0 20px", width: "100%" }}>
+              <h2 style={{ margin: 0, fontSize: "1.45rem", color: "var(--color-ink, #16213E)" }}>Related Products</h2>
             </div>
             <div className="product-grid">
               {related.map((p) => (

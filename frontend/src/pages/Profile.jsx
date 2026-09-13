@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { FiCheckCircle, FiAlertCircle, FiStar } from "react-icons/fi";
+import { FaStar } from "react-icons/fa";
 import toast from "react-hot-toast";
 import MainLayout from "../layouts/MainLayout.jsx";
 import Button from "../components/Button.jsx";
@@ -228,84 +229,105 @@ const Profile = () => {
             <div
               style={{
                 width: "100%",
-                marginTop: "16px",
-                paddingTop: "16px",
-                borderTop: "1px solid var(--color-border, #E4DFD2)",
+                marginTop: "18px",
+                background: "var(--color-paper, #FAF8F5)",
+                border: "1px solid var(--color-border, #E4DFD2)",
+                borderRadius: "12px",
+                padding: "12px 14px",
                 textAlign: "left",
+                boxSizing: "border-box",
               }}
             >
               <div
                 style={{
-                  fontSize: "0.78rem",
+                  fontSize: "0.74rem",
                   fontWeight: 700,
                   textTransform: "uppercase",
-                  letterSpacing: "0.05em",
+                  letterSpacing: "0.06em",
                   color: "var(--color-text-muted, #5B6478)",
-                  marginBottom: "8px",
+                  marginBottom: "10px",
                 }}
               >
                 Campus Reputation
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  fontSize: "0.85rem",
-                  marginBottom: "6px",
-                }}
-              >
-                <span style={{ color: "var(--color-text, #1D2333)", fontWeight: 500 }}>Seller Rating</span>
-                <span>
-                  {user.sellerRating > 0 ? (
-                    <StarRating
-                      rating={user.sellerRating}
-                      size="sm"
-                      showValue
-                      showCount
-                      count={user.sellerReviewCount || 0}
-                    />
-                  ) : (
-                    <span style={{ color: "var(--color-text-muted, #5B6478)", fontSize: "0.8rem" }}>
-                      No reviews
-                    </span>
-                  )}
-                </span>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  fontSize: "0.85rem",
-                }}
-              >
-                <span style={{ color: "var(--color-text, #1D2333)", fontWeight: 500 }}>Buyer Rating</span>
-                <span>
-                  {user.buyerRating > 0 ? (
-                    <StarRating
-                      rating={user.buyerRating}
-                      size="sm"
-                      showValue
-                      showCount
-                      count={user.buyerReviewCount || 0}
-                    />
-                  ) : (
-                    <span style={{ color: "var(--color-text-muted, #5B6478)", fontSize: "0.8rem" }}>
-                      No reviews
-                    </span>
-                  )}
-                </span>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                {/* Seller Rating Row */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    fontSize: "0.84rem",
+                    minHeight: "28px",
+                    paddingBottom: "6px",
+                    borderBottom: "1px solid var(--color-border, #E4DFD2)",
+                  }}
+                >
+                  <span style={{ color: "var(--color-text, #1D2333)", fontWeight: 500, whiteSpace: "nowrap" }}>
+                    Seller Rating
+                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
+                    {user.sellerRating > 0 ? (
+                      <>
+                        <FaStar size={13} color="#E1A73B" style={{ flexShrink: 0 }} />
+                        <span style={{ fontWeight: 700, fontSize: "0.86rem", color: "var(--color-ink, #16213E)" }}>
+                          {Number(user.sellerRating).toFixed(1)}
+                        </span>
+                        <span style={{ fontSize: "0.76rem", color: "var(--color-text-muted, #5B6478)", whiteSpace: "nowrap" }}>
+                          ({user.sellerReviewCount || 0} {(user.sellerReviewCount || 0) === 1 ? "review" : "reviews"})
+                        </span>
+                      </>
+                    ) : (
+                      <span style={{ color: "var(--color-text-muted, #5B6478)", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
+                        No reviews
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Buyer Rating Row */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    fontSize: "0.84rem",
+                    minHeight: "28px",
+                    paddingTop: "2px",
+                  }}
+                >
+                  <span style={{ color: "var(--color-text, #1D2333)", fontWeight: 500, whiteSpace: "nowrap" }}>
+                    Buyer Rating
+                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
+                    {user.buyerRating > 0 ? (
+                      <>
+                        <FaStar size={13} color="#E1A73B" style={{ flexShrink: 0 }} />
+                        <span style={{ fontWeight: 700, fontSize: "0.86rem", color: "var(--color-ink, #16213E)" }}>
+                          {Number(user.buyerRating).toFixed(1)}
+                        </span>
+                        <span style={{ fontSize: "0.76rem", color: "var(--color-text-muted, #5B6478)", whiteSpace: "nowrap" }}>
+                          ({user.buyerReviewCount || 0} {(user.buyerReviewCount || 0) === 1 ? "review" : "reviews"})
+                        </span>
+                      </>
+                    ) : (
+                      <span style={{ color: "var(--color-text-muted, #5B6478)", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
+                        No reviews
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div style={{ width: "100%", marginTop: "16px" }}>
+            <div style={{ width: "100%", marginTop: "14px" }}>
               <Link to="/my-transactions" style={{ textDecoration: "none", display: "block" }}>
                 <Button
                   variant="outline"
                   style={{
                     width: "100%",
-                    padding: "7px 12px",
+                    padding: "8px 12px",
                     fontSize: "0.82rem",
                     display: "flex",
                     alignItems: "center",
@@ -397,10 +419,10 @@ const Profile = () => {
         </div>
 
         {/* Reviews Received by User */}
-        <div style={{ marginTop: "48px" }}>
-          <div className="section-head" style={{ textAlign: "left", marginBottom: "20px" }}>
-            <h2 style={{ margin: 0, fontSize: "1.45rem" }}>Reviews & Campus Reputation</h2>
-            <p style={{ margin: "4px 0 0", fontSize: "0.88rem", color: "var(--color-text-muted, #5B6478)" }}>
+        <div style={{ marginTop: "48px", width: "100%" }}>
+          <div style={{ textAlign: "left", marginBottom: "20px", width: "100%" }}>
+            <h2 style={{ margin: 0, fontSize: "1.45rem", color: "var(--color-ink, #16213E)" }}>Reviews & Campus Reputation</h2>
+            <p style={{ margin: "6px 0 0", fontSize: "0.88rem", color: "var(--color-text-muted, #5B6478)" }}>
               Feedback left by other NIT Kurukshetra students from your completed transactions.
             </p>
           </div>
