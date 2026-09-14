@@ -182,7 +182,18 @@ export const initChatSocket = (io) => {
           return;
         }
 
-        const { conversationId, content = "", messageType = "text", imageUrl = "" } = data || {};
+        const {
+          conversationId,
+          content = "",
+          messageType = "text",
+          imageUrl = "",
+          encryptionVersion = 0,
+          ciphertext = "",
+          iv = "",
+          encryptedKey = "",
+          senderEncryptedKey = "",
+          keyFingerprint = "",
+        } = data || {};
 
         if (!conversationId) {
           socket.emit("chat_error", { message: "conversationId is required" });
@@ -226,7 +237,24 @@ export const initChatSocket = (io) => {
         }
 
         // Validate payload by type
-        if (messageType === "text") {
+        const isEncrypted = Number(encryptionVersion) >= 1;
+        if (isEncrypted) {
+          if (!ciphertext || typeof ciphertext !== "string" || !ciphertext.trim()) {
+            socket.emit("chat_error", { message: "Ciphertext is required for encrypted messages" });
+            if (typeof callback === "function") callback({ success: false, error: "Ciphertext required" });
+            return;
+          }
+          if (!iv || typeof iv !== "string" || !iv.trim()) {
+            socket.emit("chat_error", { message: "IV is required for encrypted messages" });
+            if (typeof callback === "function") callback({ success: false, error: "IV required" });
+            return;
+          }
+          if (!encryptedKey || typeof encryptedKey !== "string" || !encryptedKey.trim()) {
+            socket.emit("chat_error", { message: "encryptedKey is required for encrypted messages" });
+            if (typeof callback === "function") callback({ success: false, error: "encryptedKey required" });
+            return;
+          }
+        } else if (messageType === "text") {
           const trimmed = content.trim();
           if (!trimmed) {
             socket.emit("chat_error", { message: "Message content cannot be empty" });
@@ -251,13 +279,21 @@ export const initChatSocket = (io) => {
           conversation: conversationId,
           sender: userId,
           receiver: receiverId,
-          content: messageType === "text" ? content.trim() : "",
+          content: isEncrypted ? "" : (messageType === "text" ? content.trim() : ""),
           messageType,
           imageUrl: messageType === "image" ? imageUrl : "",
+          encryptionVersion: isEncrypted ? Number(encryptionVersion) : 0,
+          ciphertext: isEncrypted ? ciphertext.trim() : "",
+          iv: isEncrypted ? iv.trim() : "",
+          encryptedKey: isEncrypted ? encryptedKey.trim() : "",
+          senderEncryptedKey: isEncrypted ? (senderEncryptedKey || "").trim() : "",
+          keyFingerprint: isEncrypted ? (keyFingerprint || "").trim() : "",
         });
 
         // Update conversation summary
-        const preview = messageType === "image" ? "📷 Photo" : content.trim().slice(0, 100);
+        const preview = isEncrypted
+          ? "🔒 Encrypted Message"
+          : (messageType === "image" ? "📷 Photo" : content.trim().slice(0, 100));
         await Conversation.findByIdAndUpdate(conversationId, {
           lastMessage: message._id,
           lastMessageContent: preview,

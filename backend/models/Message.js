@@ -26,6 +26,31 @@ const messageSchema = new mongoose.Schema(
       maxlength: [2000, "Message content cannot exceed 2000 characters"],
       default: "",
     },
+    encryptionVersion: {
+      type: Number,
+      default: 0, // 0 = legacy plaintext, 1 = E2EE v1
+      index: true,
+    },
+    ciphertext: {
+      type: String,
+      default: "",
+    },
+    iv: {
+      type: String,
+      default: "",
+    },
+    encryptedKey: {
+      type: String,
+      default: "",
+    },
+    senderEncryptedKey: {
+      type: String,
+      default: "",
+    },
+    keyFingerprint: {
+      type: String,
+      default: "",
+    },
     messageType: {
       type: String,
       enum: ["text", "image"],

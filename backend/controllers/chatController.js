@@ -249,7 +249,17 @@ const isSafeImageUrl = (url) => {
 export const sendMessage = async (req, res, next) => {
   try {
     const { conversationId } = req.params;
-    const { content = "", messageType = "text", imageUrl = "" } = req.body;
+    const {
+      content = "",
+      messageType = "text",
+      imageUrl = "",
+      encryptionVersion = 0,
+      ciphertext = "",
+      iv = "",
+      encryptedKey = "",
+      senderEncryptedKey = "",
+      keyFingerprint = "",
+    } = req.body;
     const userId = req.user._id.toString();
 
     const conversation = await Conversation.findById(conversationId);
@@ -282,7 +292,18 @@ export const sendMessage = async (req, res, next) => {
       });
     }
 
-    if (messageType === "text") {
+    const isEncrypted = Number(encryptionVersion) >= 1;
+    if (isEncrypted) {
+      if (!ciphertext || typeof ciphertext !== "string" || !ciphertext.trim()) {
+        return res.status(400).json({ success: false, message: "Ciphertext is required for encrypted messages" });
+      }
+      if (!iv || typeof iv !== "string" || !iv.trim()) {
+        return res.status(400).json({ success: false, message: "IV is required for encrypted messages" });
+      }
+      if (!encryptedKey || typeof encryptedKey !== "string" || !encryptedKey.trim()) {
+        return res.status(400).json({ success: false, message: "encryptedKey is required for encrypted messages" });
+      }
+    } else if (messageType === "text") {
       const trimmed = content.trim();
       if (!trimmed) {
         return res.status(400).json({ success: false, message: "Message content cannot be empty" });
@@ -303,12 +324,20 @@ export const sendMessage = async (req, res, next) => {
       conversation: conversationId,
       sender: userId,
       receiver: receiverId,
-      content: messageType === "text" ? content.trim() : "",
+      content: isEncrypted ? "" : (messageType === "text" ? content.trim() : ""),
       messageType,
       imageUrl: messageType === "image" ? imageUrl : "",
+      encryptionVersion: isEncrypted ? Number(encryptionVersion) : 0,
+      ciphertext: isEncrypted ? ciphertext.trim() : "",
+      iv: isEncrypted ? iv.trim() : "",
+      encryptedKey: isEncrypted ? encryptedKey.trim() : "",
+      senderEncryptedKey: isEncrypted ? (senderEncryptedKey || "").trim() : "",
+      keyFingerprint: isEncrypted ? (keyFingerprint || "").trim() : "",
     });
 
-    const preview = messageType === "image" ? "📷 Photo" : content.trim().slice(0, 100);
+    const preview = isEncrypted
+      ? "🔒 Encrypted Message"
+      : (messageType === "image" ? "📷 Photo" : content.trim().slice(0, 100));
     await Conversation.findByIdAndUpdate(conversationId, {
       lastMessage: message._id,
       lastMessageContent: preview,

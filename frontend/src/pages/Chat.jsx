@@ -5,10 +5,12 @@ import MainLayout from "../layouts/MainLayout.jsx";
 import ConversationList from "../components/chat/ConversationList.jsx";
 import ChatWindow from "../components/chat/ChatWindow.jsx";
 import ReportModal from "../components/chat/ReportModal.jsx";
+import KeyBackupModal from "../components/chat/KeyBackupModal.jsx";
 import Loader from "../components/Loader.jsx";
 import { useAuth } from "../hooks/useAuth.js";
 import { useSocket } from "../hooks/useSocket.js";
 import { chatService } from "../services/chatService.js";
+import e2eeService from "../crypto/e2eeService.js";
 import "../styles/chat.css";
 
 const Chat = () => {
@@ -27,6 +29,130 @@ const Chat = () => {
   const [isOtherTyping, setIsOtherTyping] = useState(false);
   const [blockStatus, setBlockStatus] = useState({ isBlocked: false, blockedByMe: false, blockedByUser: false });
   const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [keyBackupModalOpen, setKeyBackupModalOpen] = useState(false);
+  const [keyModalMode, setKeyModalMode] = useState("backup");
+  const [peerE2eeInfo, setPeerE2eeInfo] = useState({
+    isEncrypted: false,
+    peerHasKey: false,
+    keyChanged: false,
+    currentFingerprint: "",
+  });
+
+  const currentUserId = (user?._id || user?.id || "").toString();
+
+  // Robustly extract other participant from activeConversation, sidebar list, or product
+  const otherUser = useMemo(() => {
+    const activeParticipants = activeConversation?.participants || [];
+    let found = activeParticipants.find((p) => {
+      const pId = (p?._id || p?.id || p || "").toString();
+      return pId && pId !== currentUserId;
+    });
+
+    if (!found || typeof found === "string") {
+      const convInList = conversations.find(
+        (c) => (c._id || c.id)?.toString() === conversationId
+      );
+      const listParticipant = convInList?.participants?.find((p) => {
+        const pId = (p?._id || p?.id || p || "").toString();
+        return pId && pId !== currentUserId && typeof p === "object" && p !== null;
+      });
+      if (listParticipant) {
+        found = listParticipant;
+      }
+    }
+
+    if (!found) {
+      const product = activeConversation?.product;
+      const ownerId = (product?.owner?._id || product?.owner || "").toString();
+      if (ownerId && ownerId !== currentUserId) {
+        found = {
+          _id: ownerId,
+          id: ownerId,
+          name: product?.seller?.name || "Student",
+          phone: product?.seller?.phone,
+          department: product?.seller?.department,
+        };
+      }
+    }
+
+    if (typeof found === "object" && found !== null) {
+      const idStr = (found._id || found.id || "").toString();
+      return {
+        ...found,
+        _id: idStr,
+        id: idStr,
+      };
+    } else if (found) {
+      const idStr = found.toString();
+      return {
+        _id: idStr,
+        id: idStr,
+        name: "Student",
+      };
+    }
+
+    return null;
+  }, [activeConversation, conversations, conversationId, currentUserId]);
+
+  // Initialize E2EE cryptographic identity for logged-in user
+  useEffect(() => {
+    if (!user?._id) return;
+    let isMounted = true;
+
+    e2eeService
+      .initUserKeys(user)
+      .then((res) => {
+        if (!isMounted) return;
+        if (res?.status === "needs_restore") {
+          setKeyModalMode("restore");
+          setKeyBackupModalOpen(true);
+        }
+      })
+      .catch((err) => {
+        console.error("E2EE key initialization error:", err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
+
+  // Check recipient E2EE key status and fingerprint
+  useEffect(() => {
+    const peerId = otherUser?._id;
+    if (!peerId) {
+      setPeerE2eeInfo({ isEncrypted: false, peerHasKey: false, keyChanged: false, currentFingerprint: "" });
+      return;
+    }
+
+    let isMounted = true;
+    e2eeService
+      .getPeerPublicKey(peerId)
+      .then((peerKey) => {
+        if (isMounted) {
+          setPeerE2eeInfo({
+            isEncrypted: true,
+            peerHasKey: true,
+            keyChanged: Boolean(peerKey?.keyChanged),
+            currentFingerprint: peerKey?.fingerprint || "",
+          });
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setPeerE2eeInfo({
+            isEncrypted: false,
+            peerHasKey: false,
+            keyChanged: false,
+            currentFingerprint: "",
+          });
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [otherUser?._id]);
 
   // Load all user conversations
   const loadConversations = useCallback(async () => {
@@ -68,10 +194,25 @@ const Chat = () => {
 
         const msgRes = await chatService.getMessages(convId, pageNum, 30);
         if (msgRes.success) {
+          const rawMessages = msgRes.data.messages || [];
+          const myId = (user?._id || user?.id || "").toString();
+
+          const decryptedMessages = await Promise.all(
+            rawMessages.map(async (m) => {
+              const dec = await e2eeService.decryptMessage(m, myId);
+              return {
+                ...m,
+                content: dec.decryptedText,
+                isEncrypted: dec.isEncrypted,
+                decryptionError: dec.error,
+              };
+            })
+          );
+
           if (pageNum === 1) {
-            setMessages(msgRes.data.messages || []);
+            setMessages(decryptedMessages);
           } else {
-            setMessages((prev) => [...msgRes.data.messages, ...prev]);
+            setMessages((prev) => [...decryptedMessages, ...prev]);
           }
           setPage(pageNum);
           setHasMore(pageNum < msgRes.data.totalPages);
@@ -94,7 +235,7 @@ const Chat = () => {
         toast.error("Failed to load chat messages");
       }
     },
-    [socket, isConnected, fetchUnreadCount]
+    [socket, isConnected, fetchUnreadCount, user?._id, user?.id]
   );
 
   // Sync route param with active conversation and global socket context
@@ -131,15 +272,25 @@ const Chat = () => {
     socket.emit("join_conversation", { conversationId });
 
     // Handle incoming message
-    const handleNewMessage = (newMsg) => {
+    const handleNewMessage = async (newMsg) => {
       if (newMsg.conversation === conversationId) {
+        const myId = (user?._id || user?.id || "").toString();
+        const dec = await e2eeService.decryptMessage(newMsg, myId);
+        const decryptedMsg = {
+          ...newMsg,
+          content: dec.decryptedText,
+          isEncrypted: dec.isEncrypted,
+          decryptionError: dec.error,
+        };
+
         setMessages((prev) => {
-          if (prev.some((m) => m._id === newMsg._id)) return prev;
-          return [...prev, newMsg];
+          if (prev.some((m) => m._id === decryptedMsg._id)) return prev;
+          return [...prev, decryptedMsg];
         });
 
         // Mark as read immediately if current user is the receiver and viewing
-        if (newMsg.receiver === user?._id) {
+        const receiverId = (newMsg.receiver?._id || newMsg.receiver || "").toString();
+        if (receiverId === myId) {
           socket.emit("message_read", { conversationId });
           chatService.markMessagesAsRead(conversationId).catch(() => {});
           if (fetchUnreadCount) fetchUnreadCount();
@@ -150,14 +301,20 @@ const Chat = () => {
       setConversations((prev) =>
         prev.map((c) => {
           if (c._id === newMsg.conversation) {
+            const preview = Number(newMsg.encryptionVersion) >= 1
+              ? "🔒 Encrypted Message"
+              : (newMsg.messageType === "image" ? "📷 Photo" : newMsg.content?.slice(0, 100));
+
+            const senderId = (newMsg.sender?._id || newMsg.sender || "").toString();
+            const myId = (user?._id || user?.id || "").toString();
+
             return {
               ...c,
               lastMessage: newMsg._id,
-              lastMessageContent:
-                newMsg.messageType === "image" ? "📷 Photo" : newMsg.content?.slice(0, 100),
+              lastMessageContent: preview,
               lastMessageAt: newMsg.createdAt,
               unreadCount:
-                newMsg.conversation === conversationId || newMsg.sender === user?._id
+                newMsg.conversation === conversationId || senderId === myId
                   ? 0
                   : (c.unreadCount || 0) + 1,
             };
@@ -228,33 +385,70 @@ const Chat = () => {
       messageType = "image";
     }
 
-    const payload = {
+    let payload = {
       conversationId,
       content,
       messageType,
       imageUrl,
+      encryptionVersion: 0,
+    };
+
+    if (messageType === "text" && peerE2eeInfo.peerHasKey && otherUser?._id) {
+      try {
+        const encrypted = await e2eeService.encryptMessage(
+          conversationId,
+          currentUserId,
+          otherUser._id,
+          content
+        );
+        payload = {
+          conversationId,
+          content: "",
+          messageType: "text",
+          imageUrl: "",
+          ...encrypted,
+        };
+      } catch (err) {
+        console.warn("E2EE encryption warning, sending legacy fallback:", err);
+      }
+    }
+
+    // Decrypt returned message before saving to state
+    const formatReturnedMessage = async (rawMsg) => {
+      const dec = await e2eeService.decryptMessage(rawMsg, currentUserId);
+      return {
+        ...rawMsg,
+        content: dec.decryptedText,
+        isEncrypted: dec.isEncrypted,
+        decryptionError: dec.error,
+      };
     };
 
     // Try socket emission first with acknowledgment callback
     if (socket && isConnected) {
       return new Promise((resolve, reject) => {
-        socket.emit("send_message", payload, (response) => {
+        socket.emit("send_message", payload, async (response) => {
           if (response?.success) {
-            resolve(response.message);
+            const formatted = await formatReturnedMessage(response.message);
+            resolve(formatted);
           } else {
             // Fallback to REST API if socket rejected
-            chatService
-              .sendMessage(conversationId, payload)
-              .then((res) => resolve(res.data))
-              .catch(reject);
+            try {
+              const res = await chatService.sendMessage(conversationId, payload);
+              const formatted = await formatReturnedMessage(res.data);
+              resolve(formatted);
+            } catch (err) {
+              reject(err);
+            }
           }
         });
       });
     } else {
       // Fallback: send via REST
       const res = await chatService.sendMessage(conversationId, payload);
-      setMessages((prev) => [...prev, res.data]);
-      return res.data;
+      const formatted = await formatReturnedMessage(res.data);
+      setMessages((prev) => [...prev, formatted]);
+      return formatted;
     }
   };
 
@@ -287,62 +481,6 @@ const Chat = () => {
   const handleBackToConversations = () => {
     navigate("/chat");
   };
-
-  const currentUserId = (user?._id || user?.id || "").toString();
-
-  // Robustly extract other participant from activeConversation, sidebar list, or product
-  const otherUser = useMemo(() => {
-    const activeParticipants = activeConversation?.participants || [];
-    let found = activeParticipants.find((p) => {
-      const pId = (p?._id || p?.id || p || "").toString();
-      return pId && pId !== currentUserId;
-    });
-
-    if (!found || typeof found === "string") {
-      const convInList = conversations.find(
-        (c) => (c._id || c.id)?.toString() === conversationId
-      );
-      const listParticipant = convInList?.participants?.find((p) => {
-        const pId = (p?._id || p?.id || p || "").toString();
-        return pId && pId !== currentUserId && typeof p === "object" && p !== null;
-      });
-      if (listParticipant) {
-        found = listParticipant;
-      }
-    }
-
-    if (!found) {
-      const product = activeConversation?.product;
-      const ownerId = (product?.owner?._id || product?.owner || "").toString();
-      if (ownerId && ownerId !== currentUserId) {
-        found = {
-          _id: ownerId,
-          id: ownerId,
-          name: product?.seller?.name || "Student",
-          phone: product?.seller?.phone,
-          department: product?.seller?.department,
-        };
-      }
-    }
-
-    if (typeof found === "object" && found !== null) {
-      const idStr = (found._id || found.id || "").toString();
-      return {
-        ...found,
-        _id: idStr,
-        id: idStr,
-      };
-    } else if (found) {
-      const idStr = found.toString();
-      return {
-        _id: idStr,
-        id: idStr,
-        name: "Student",
-      };
-    }
-
-    return null;
-  }, [activeConversation, conversations, conversationId, currentUserId]);
 
   const handleBlockUser = async () => {
     const targetUserId = (otherUser?._id || otherUser?.id || "").toString();
@@ -421,6 +559,11 @@ const Chat = () => {
               onBlockUser={handleBlockUser}
               onUnblockUser={handleUnblockUser}
               onReportUser={() => setReportModalOpen(true)}
+              e2eeStatus={peerE2eeInfo}
+              onOpenKeyBackup={() => {
+                setKeyModalMode("backup");
+                setKeyBackupModalOpen(true);
+              }}
             />
           </div>
         </div>
@@ -432,6 +575,17 @@ const Chat = () => {
         onClose={() => setReportModalOpen(false)}
         reportedUser={otherUser}
         conversationId={conversationId}
+      />
+
+      {/* End-to-End Encryption Key Backup & Restore Modal */}
+      <KeyBackupModal
+        isOpen={keyBackupModalOpen}
+        onClose={() => setKeyBackupModalOpen(false)}
+        mode={keyModalMode}
+        user={user}
+        onRestoreSuccess={() => {
+          if (conversationId) loadActiveConversation(conversationId, 1);
+        }}
       />
     </MainLayout>
   );

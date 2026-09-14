@@ -22,12 +22,16 @@ import {
   chatUploadLimiter,
 } from "../middleware/rateLimiter.js";
 import { secureChatUpload } from "../middleware/chatUpload.js";
+import keyRoutes from "./keyRoutes.js";
 
 const router = express.Router();
 
 // All chat routes require authentication and standard rate limiting
 router.use(protect);
 router.use(chatLimiter);
+
+// Cryptographic public key registry & encrypted backups
+router.use("/keys", keyRoutes);
 
 // Global unread counter
 router.get("/unread-count", getUnreadCount);

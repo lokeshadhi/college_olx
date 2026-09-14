@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { FiArrowLeft, FiX, FiMessageSquare, FiSlash, FiAlertTriangle } from "react-icons/fi";
+import { FiArrowLeft, FiX, FiMessageSquare, FiSlash, FiAlertTriangle, FiLock, FiShield } from "react-icons/fi";
 import MessageBubble from "./MessageBubble.jsx";
 import MessageInput from "./MessageInput.jsx";
 import TypingIndicator from "./TypingIndicator.jsx";
@@ -22,6 +22,8 @@ const ChatWindow = ({
   onBlockUser,
   onUnblockUser,
   onReportUser,
+  e2eeStatus = { isEncrypted: true, peerHasKey: true, keyChanged: false },
+  onOpenKeyBackup,
 }) => {
   const { user } = useAuth();
   const { isOnline } = useSocket();
@@ -102,14 +104,51 @@ const ChatWindow = ({
 
           <div className="chat-header-user-info">
             <h3>{otherUser?.name || "Student"}</h3>
-            <div className={`chat-header-status ${otherIsOnline ? "online" : ""}`}>
-              {otherIsOnline ? "● Online on Campus" : "○ Offline"}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <div className={`chat-header-status ${otherIsOnline ? "online" : ""}`}>
+                {otherIsOnline ? "● Online on Campus" : "○ Offline"}
+              </div>
+              {e2eeStatus?.isEncrypted ? (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "3px",
+                    fontSize: "0.68rem",
+                    padding: "1px 6px",
+                    borderRadius: "4px",
+                    background: "rgba(16, 185, 129, 0.15)",
+                    color: "#10B981",
+                    fontWeight: 600,
+                  }}
+                  title={`End-to-End Encrypted. Fingerprint: ${e2eeStatus.currentFingerprint || ""}`}
+                >
+                  <FiLock size={9} /> E2EE
+                </span>
+              ) : (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "3px",
+                    fontSize: "0.68rem",
+                    padding: "1px 6px",
+                    borderRadius: "4px",
+                    background: "rgba(245, 158, 11, 0.15)",
+                    color: "#F59E0B",
+                    fontWeight: 500,
+                  }}
+                  title="Recipient has not yet registered an E2EE key. Messages sent in legacy plaintext mode."
+                >
+                  Legacy
+                </span>
+              )}
             </div>
           </div>
         </div>
 
         {/* Product Context Banner & Moderation Actions */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
           {product && (
             <Link
               to={`/products/${product._id}`}
@@ -128,8 +167,28 @@ const ChatWindow = ({
             </Link>
           )}
 
-          {/* Moderation Action Buttons */}
+          {/* Keys & Moderation Action Buttons */}
           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            <button
+              type="button"
+              onClick={onOpenKeyBackup}
+              style={{
+                background: "transparent",
+                border: "1px solid var(--color-border, #2B3253)",
+                borderRadius: "6px",
+                padding: "5px 8px",
+                fontSize: "0.78rem",
+                color: "var(--color-text-muted, #9CA3B8)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+              }}
+              title="Manage End-to-End Encryption Keys & Backup"
+            >
+              <FiShield /> Keys
+            </button>
+
             {blockStatus?.blockedByMe ? (
               <button
                 type="button"
@@ -195,6 +254,27 @@ const ChatWindow = ({
           </div>
         </div>
       </div>
+
+      {/* Key Changed Security Warning Banner */}
+      {e2eeStatus?.keyChanged && (
+        <div
+          style={{
+            background: "rgba(239, 68, 68, 0.15)",
+            borderBottom: "1px solid rgba(239, 68, 68, 0.3)",
+            padding: "8px 16px",
+            fontSize: "0.8rem",
+            color: "#FCA5A5",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          <FiAlertTriangle size={16} />
+          <span>
+            <strong>Security Warning:</strong> This student's encryption key fingerprint has changed. Verify their identity to protect against interception.
+          </span>
+        </div>
+      )}
 
       {/* Messages Scroll View */}
       <div className="messages-container" ref={messagesContainerRef}>
