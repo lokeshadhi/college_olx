@@ -168,7 +168,7 @@ const ChatWindow = ({
           )}
 
           {/* Keys & Moderation Action Buttons */}
-          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+          <div className="chat-header-actions" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
             <button
               type="button"
               onClick={onOpenKeyBackup}
@@ -186,7 +186,7 @@ const ChatWindow = ({
               }}
               title="Manage End-to-End Encryption Keys & Backup"
             >
-              <FiShield /> Keys
+              <FiShield /> <span className="btn-label">Keys</span>
             </button>
 
             {blockStatus?.blockedByMe ? (
@@ -208,7 +208,7 @@ const ChatWindow = ({
                 }}
                 title="Unblock this student"
               >
-                <FiSlash /> Unblock
+                <FiSlash /> <span className="btn-label">Unblock</span>
               </button>
             ) : (
               <button
@@ -228,7 +228,7 @@ const ChatWindow = ({
                 }}
                 title="Block this student from chat"
               >
-                <FiSlash /> Block
+                <FiSlash /> <span className="btn-label">Block</span>
               </button>
             )}
 
@@ -249,7 +249,7 @@ const ChatWindow = ({
               }}
               title="Report this student"
             >
-              <FiAlertTriangle /> Report
+              <FiAlertTriangle /> <span className="btn-label">Report</span>
             </button>
           </div>
         </div>

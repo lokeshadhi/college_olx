@@ -26,8 +26,17 @@
    Left Sidebar: Conversation List
    ========================================================================== */
 
-.chat-sidebar {
+.chat-sidebar-wrapper {
   width: 360px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.chat-sidebar {
+  width: 100%;
+  height: 100%;
   border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
@@ -203,6 +212,14 @@
 /* ==========================================================================
    Right Pane: Chat Window
    ========================================================================== */
+
+.chat-main-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
 
 .chat-main {
   flex: 1;
@@ -642,36 +659,92 @@
 @media (max-width: 768px) {
   .chat-page-container {
     padding: 0 0.5rem;
-    margin: 0.5rem auto 2rem;
+    margin: 0.5rem auto 1rem;
   }
 
   .chat-card {
-    height: calc(100vh - 120px);
-    min-height: 480px;
+    height: calc(100vh - 85px);
+    height: calc(100dvh - 85px);
+    min-height: unset;
+    max-height: none;
     border-radius: var(--radius-md);
   }
 
+  .chat-sidebar-wrapper {
+    width: 100% !important;
+    flex: 1;
+    height: 100%;
+    border-right: none;
+  }
+
+  .chat-sidebar-wrapper.mobile-hidden {
+    display: none !important;
+  }
+
   .chat-sidebar {
-    width: 100%;
+    width: 100% !important;
+    border-right: none;
   }
 
   .chat-sidebar.mobile-hidden {
-    display: none;
+    display: none !important;
+  }
+
+  .chat-main-wrapper {
+    width: 100% !important;
+    flex: 1;
+    height: 100%;
+    min-width: 0;
+  }
+
+  .chat-main-wrapper.mobile-hidden {
+    display: none !important;
+  }
+
+  .chat-main {
+    width: 100%;
+    height: 100%;
   }
 
   .chat-main.mobile-hidden {
-    display: none;
+    display: none !important;
   }
 
   .chat-back-button {
-    display: block;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
   }
 
   .chat-product-banner {
     display: none; /* Hide product banner in mobile header to save space */
   }
 
+  .chat-main-header {
+    padding: 0.65rem 0.85rem;
+  }
+
+  .chat-input-area {
+    padding: 0.65rem 0.75rem;
+    gap: 0.5rem;
+  }
+
   .message-bubble {
-    max-width: 82%;
+    max-width: 85%;
+  }
+}
+
+@media (max-width: 480px) {
+  .chat-header-actions .btn-label {
+    display: none;
+  }
+
+  .chat-header-actions button {
+    padding: 5px 7px !important;
+    font-size: 0.75rem !important;
+  }
+
+  .chat-main-header {
+    padding: 0.5rem 0.65rem;
   }
 }

@@ -544,9 +544,9 @@ const Chat = () => {
           </div>
 
           {/* Active Chat Window */}
-          <div className={`chat-main-wrapper ${!conversationId ? "mobile-hidden" : ""}`} style={{ flex: 1, display: "flex", minWidth: 0 }}>
+          <div className={`chat-main-wrapper ${!conversationId ? "mobile-hidden" : ""}`}>
             <ChatWindow
-              conversation={activeConversation}
+              conversation={activeConversation || conversations.find((c) => (c._id || c.id)?.toString() === conversationId)}
               messages={messages}
               onSendMessage={handleSendMessage}
               onTyping={handleTyping}
