@@ -23,20 +23,40 @@ export const registerPublicKey = async (req, res, next) => {
 
     let record = await PublicKey.findOne({ user: userId });
 
-    if (record) {
-      if (record.fingerprint !== trimmedFingerprint) {
-        // Record key rotation history
-        record.previousFingerprints.push({
-          fingerprint: record.fingerprint,
-          rotatedAt: new Date(),
+    if (record && record.publicKey && record.publicKey !== "PENDING") {
+      // If the fingerprint matches, it's an idempotent registration of the user's existing identity
+      if (record.fingerprint === trimmedFingerprint) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            userId: record.user,
+            publicKey: record.publicKey,
+            fingerprint: record.fingerprint,
+            keyVersion: record.keyVersion || 1,
+            algorithm: record.algorithm,
+          },
         });
-        record.publicKey = trimmedPublicKey;
-        record.fingerprint = trimmedFingerprint;
-        record.algorithm = algorithm;
-        record.keyVersion = (record.keyVersion || 1) + 1;
-        await record.save();
       }
+
+      // If fingerprint is different, reject registration!
+      // A user must have ONLY ONE cryptographic identity across all their devices.
+      return res.status(409).json({
+        success: false,
+        code: "IDENTITY_ALREADY_EXISTS",
+        message:
+          "A cryptographic identity is already registered for this account. Each user has only one cryptographic identity across all devices. Please restore your existing key using your backup passphrase.",
+      });
+    }
+
+    if (record) {
+      // Record was pre-created (e.g., backup was stored first with PENDING public key)
+      record.publicKey = trimmedPublicKey;
+      record.fingerprint = trimmedFingerprint;
+      record.algorithm = algorithm;
+      record.keyVersion = 1;
+      await record.save();
     } else {
+      // Initial registration of the user's single cryptographic identity
       record = await PublicKey.create({
         user: userId,
         publicKey: trimmedPublicKey,

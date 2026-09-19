@@ -212,7 +212,40 @@ describe("CampusX Phase 2: End-to-End Encryption (E2EE) & Public Key Registry Te
       assert.equal(res.status, 400);
     });
 
-    it("should increment keyVersion and record previous fingerprints on key rotation", async () => {
+    it("should allow idempotent re-registration of the same public key and fingerprint", async () => {
+      // Initial registration
+      await fetch(`${baseUrl}/api/chat/keys/public-key`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${aliceToken}`,
+        },
+        body: JSON.stringify({
+          publicKey: "INITIAL_KEY_ALICE",
+          fingerprint: "11:11:11:11:11:11:11:11",
+        }),
+      });
+
+      // Idempotent re-registration
+      const res = await fetch(`${baseUrl}/api/chat/keys/public-key`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${aliceToken}`,
+        },
+        body: JSON.stringify({
+          publicKey: "INITIAL_KEY_ALICE",
+          fingerprint: "11:11:11:11:11:11:11:11",
+        }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 200);
+      assert.equal(body.success, true);
+      assert.equal(body.data.fingerprint, "11:11:11:11:11:11:11:11");
+    });
+
+    it("should reject conflicting public key registration (single cryptographic identity invariance)", async () => {
       // 1. Register initial key
       await fetch(`${baseUrl}/api/chat/keys/public-key`, {
         method: "POST",
@@ -226,23 +259,30 @@ describe("CampusX Phase 2: End-to-End Encryption (E2EE) & Public Key Registry Te
         }),
       });
 
-      // 2. Rotate to new key
-      const rotateRes = await fetch(`${baseUrl}/api/chat/keys/public-key`, {
+      // 2. Attempt to register conflicting key
+      const conflictRes = await fetch(`${baseUrl}/api/chat/keys/public-key`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${aliceToken}`,
         },
         body: JSON.stringify({
-          publicKey: "ROTATED_KEY_ALICE",
+          publicKey: "CONFLICTING_KEY_ALICE_PHONE",
           fingerprint: "22:22:22:22:22:22:22:22",
         }),
       });
 
-      const body = await rotateRes.json();
-      assert.equal(rotateRes.status, 200);
-      assert.equal(body.data.keyVersion, 2);
-      assert.equal(body.data.fingerprint, "22:22:22:22:22:22:22:22");
+      const body = await conflictRes.json();
+      assert.equal(conflictRes.status, 409);
+      assert.equal(body.success, false);
+      assert.equal(body.code, "IDENTITY_ALREADY_EXISTS");
+
+      // Verify the original key remains unchanged
+      const checkRes = await fetch(`${baseUrl}/api/chat/keys/public-key/${mockAlice._id}`, {
+        headers: { Authorization: `Bearer ${aliceToken}` },
+      });
+      const checkBody = await checkRes.json();
+      assert.equal(checkBody.data.fingerprint, "11:11:11:11:11:11:11:11");
     });
 
     it("should allow any authenticated user to retrieve a peer's public key", async () => {

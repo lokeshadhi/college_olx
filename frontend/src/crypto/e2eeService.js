@@ -106,18 +106,44 @@ class E2EEService {
       }
     }
 
-    // 2. If no local keys found in IndexedDB, check if an encrypted backup exists on server
+    // 2. If no local keys found in IndexedDB, check if an identity ALREADY exists on the server!
+    let serverIdentity = null;
     try {
-      const backupRes = await api.get("/chat/keys/backup");
-      if (backupRes.data?.success && backupRes.data?.data) {
-        return { status: "needs_restore", hasBackup: true };
+      const pubRes = await api.get(`/chat/keys/public-key/${userId}`);
+      if (pubRes.data?.success && pubRes.data?.data?.publicKey) {
+        serverIdentity = pubRes.data.data;
       }
     } catch (err) {
-      // 404 means no backup exists, proceed to key generation
+      // 404 means no public key registered on server yet
     }
 
-    // 3. Generate a brand new RSA-OAEP key pair
-    return await this.generateAndRegisterNewKeys(userId);
+    if (serverIdentity) {
+      // User has an established cryptographic identity on another device!
+      // Check if an encrypted backup exists on server
+      let hasBackup = false;
+      try {
+        const backupRes = await api.get("/chat/keys/backup");
+        if (backupRes.data?.success && backupRes.data?.data?.ciphertext) {
+          hasBackup = true;
+        }
+      } catch (err) {
+        // 404 means no backup on server
+      }
+
+      return {
+        status: "needs_restore",
+        hasBackup,
+        serverFingerprint: serverIdentity.fingerprint,
+      };
+    }
+
+    // 3. No identity exists on server: This is the user's first device!
+    // Generate a brand new RSA-OAEP key pair to establish their single identity
+    const newKeyResult = await this.generateAndRegisterNewKeys(userId);
+    return {
+      ...newKeyResult,
+      needsBackup: true,
+    };
   }
 
   /**
@@ -165,7 +191,11 @@ class E2EEService {
         algorithm: "RSA-OAEP-2048",
       });
     } catch (error) {
-      console.warn("Public key registration warning:", error.message);
+      if (error.response?.status === 409) {
+        console.warn("Public key conflict: Account already has a registered cryptographic identity.", error.response?.data?.message);
+      } else {
+        console.warn("Public key registration warning:", error.message);
+      }
     }
   }
 
