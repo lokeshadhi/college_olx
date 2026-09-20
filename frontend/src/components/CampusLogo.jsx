@@ -1,13 +1,17 @@
 import logoLight from "../assets/campusx-logo-light.png";
 import logoDark from "../assets/campusx-logo-dark.png";
+import stackedLight from "../assets/campusx-stacked-light.png";
+import stackedDark from "../assets/campusx-stacked-dark.png";
 
 /**
- * CampusLogo — CampusX Marketplace Brand Logo
- * Features the signature CampusX Marketplace branding with academic cap,
- * shopping cart handle, and dual wheels on the "X".
- * Automatically adapts between light and dark themes with high clarity.
+ * CampusLogo — Official CampusX Marketplace Brand Logo
+ * Features the graduate student in shopping cart with "CAMPUS X: BUY. SELL. CONNECT."
+ * Automatically adapts between light and dark themes with crystal clear HD resolution.
  */
-export const CampusLogo = ({ height = 52, className = "" }) => {
+export const CampusLogo = ({ height = 48, variant = "horizontal", className = "" }) => {
+  const lightSrc = variant === "stacked" ? stackedLight : logoLight;
+  const darkSrc = variant === "stacked" ? stackedDark : logoDark;
+
   return (
     <div
       className={`campus-brand-logo ${className}`}
@@ -18,30 +22,30 @@ export const CampusLogo = ({ height = 52, className = "" }) => {
       }}
     >
       <img
-        src={logoLight}
-        alt="CampusX Marketplace"
+        src={lightSrc}
+        alt="CampusX: Buy. Sell. Connect."
         height={height}
         className="campus-logo-img light-only"
         style={{
           height: `${height}px`,
           width: "auto",
           objectFit: "contain",
-          imageRendering: "-webkit-optimize-contrast",
-          filter: "drop-shadow(0 2px 8px rgba(12, 22, 53, 0.12))",
+          imageRendering: "auto",
+          WebkitFontSmoothing: "antialiased",
           transition: "transform 0.2s ease",
         }}
       />
       <img
-        src={logoDark}
-        alt="CampusX Marketplace"
+        src={darkSrc}
+        alt="CampusX: Buy. Sell. Connect."
         height={height}
         className="campus-logo-img dark-only"
         style={{
           height: `${height}px`,
           width: "auto",
           objectFit: "contain",
-          imageRendering: "-webkit-optimize-contrast",
-          filter: "drop-shadow(0 2px 12px rgba(59, 130, 246, 0.28))",
+          imageRendering: "auto",
+          WebkitFontSmoothing: "antialiased",
           transition: "transform 0.2s ease",
         }}
       />

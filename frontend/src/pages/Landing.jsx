@@ -42,6 +42,8 @@ const TESTIMONIALS = [
   { name: "Meera S.", role: "2nd Year, ECE", quote: "Finally a place where I can actually filter by price instead of scrolling forever." },
 ];
 
+import ChapterNav from "../components/ChapterNav.jsx";
+
 const Landing = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -74,72 +76,127 @@ const Landing = () => {
 
   return (
     <MainLayout>
-      {/* Hero */}
-      <section className="hero">
-        <div className="container hero-inner">
-          <div>
-            <span className="hero-eyebrow">The campus-only marketplace</span>
-            <h1>
-              Buy. Sell. Save. <em>Inside Your Campus.</em>
-            </h1>
-            <p className="lead">
-              Skip the buried WhatsApp threads. CampusX is where students list books,
-              electronics, cycles, and hostel essentials — organized, searchable, and
-              only ever a message away from a fellow student.
-            </p>
-            <div className="hero-actions">
-              <Button variant="primary" onClick={() => navigate("/sell")}>
-                Sell a Product
-              </Button>
-              <Button variant="outline" onClick={() => navigate("/browse")}>
-                Browse Products
-              </Button>
-            </div>
-            <SearchBar value={search} onChange={setSearch} onSubmit={handleSearch} />
-          </div>
+      {/* Apple Page Title & Search */}
+      <section className="apple-header-section">
+        <div className="container">
+          <h1 className="apple-title-main">CampusX</h1>
+          <p className="apple-subtitle-main">
+            The verified peer marketplace built for NIT Kurukshetra students.
+          </p>
 
-          <div className="hero-visual">
-            <div className="hero-stamp-card">
-              <div className="hsc-row">
-                <span className="hsc-label">Category</span>
-                <span className="hsc-value">Electronics</span>
-              </div>
-              <div className="hsc-row">
-                <span className="hsc-label">Condition</span>
-                <span className="hsc-value">Like New</span>
-              </div>
-              <div className="hsc-row">
-                <span className="hsc-label">Price</span>
-                <span className="hsc-value">₹3,200</span>
-              </div>
-              <div className="hsc-row">
-                <span className="hsc-label">Seller</span>
-                <span className="hsc-value">Final Year, ECE</span>
-              </div>
-            </div>
-            <div className="hero-stamp-badge">CAMPUS VERIFIED</div>
+          <div className="apple-search-container">
+            <SearchBar
+              value={search}
+              onChange={setSearch}
+              onSubmit={handleSearch}
+              placeholder="Search cycles, calculators, books, hostel gear..."
+            />
           </div>
         </div>
       </section>
 
-      {/* Stats */}
+      {/* Apple Horizontal Chapter Nav (As seen in Apple iPhone line page) */}
+      <ChapterNav />
+
+      {/* Apple Bento Showcase Hero Card ("iPhone Duo" Style) */}
+      <div className="container">
+        <div className="apple-showcase-card">
+          <div className="apple-showcase-inner">
+            <div>
+              <span
+                style={{
+                  color: "var(--color-brand-accent)",
+                  fontWeight: 600,
+                  fontSize: "0.82rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  display: "block",
+                  marginBottom: "8px",
+                }}
+              >
+                Campus Life Made Simple
+              </span>
+              <h2 className="apple-showcase-title">Campus Essentials.</h2>
+              <p className="apple-showcase-subtitle">
+                Hello, semester. Buy cycles, textbooks, calculators, and lab gear directly from peers graduating or moving hostels.
+              </p>
+              <div className="apple-showcase-ctas">
+                <Button variant="primary" onClick={() => navigate("/browse")}>
+                  Explore Store
+                </Button>
+                <button
+                  type="button"
+                  className="link-apple"
+                  onClick={() => navigate("/sell")}
+                  style={{ background: "none", border: "none", cursor: "pointer" }}
+                >
+                  Sell an item
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div className="hero-product-preview-card">
+                <div className="hpp-badge">
+                  <FiShield /> Verified NITKKR Listing
+                </div>
+                <div className="hpp-item-title">Casio FX-991CW Scientific Calculator</div>
+                <div className="hpp-item-dept">Listed by 3rd Year • Mechanical Engg</div>
+
+                <div className="hpp-details-grid">
+                  <div className="hpp-row">
+                    <span className="label">Condition</span>
+                    <span className="value">Like New (1 Sem used)</span>
+                  </div>
+                  <div className="hpp-row">
+                    <span className="label">Meetup Point</span>
+                    <span className="value">Central Library / SAC</span>
+                  </div>
+                  <div className="hpp-row">
+                    <span className="label">Encrypted Chat</span>
+                    <span className="value" style={{ color: "var(--color-success)" }}>
+                      Active
+                    </span>
+                  </div>
+                </div>
+
+                <div className="hpp-price-banner">
+                  <div>
+                    <span style={{ fontSize: "0.74rem", color: "var(--color-text-muted)" }}>Asking Price</span>
+                    <div className="hpp-price-val">₹950</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => navigate("/browse")}
+                  >
+                    View Deal
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Strip */}
       <div className="container">
         <div className="stats-strip">
           <div className="stat-item">
             <div className="stat-num">{stats.total || "500+"}</div>
-            <div className="stat-label">Active Listings</div>
+            <div className="stat-label">Active Campus Listings</div>
           </div>
           <div className="stat-item">
             <div className="stat-num">10</div>
-            <div className="stat-label">Categories</div>
+            <div className="stat-label">Student Categories</div>
           </div>
           <div className="stat-item">
-            <div className="stat-num">1,200+</div>
-            <div className="stat-label">Students Joined</div>
+            <div className="stat-num">100%</div>
+            <div className="stat-label">Student-Verified Profiles</div>
           </div>
           <div className="stat-item">
-            <div className="stat-num">Zero</div>
-            <div className="stat-label">Listing Fees</div>
+            <div className="stat-num">₹0</div>
+            <div className="stat-label">Commission or Platform Fees</div>
           </div>
         </div>
       </div>
@@ -197,23 +254,54 @@ const Landing = () => {
         </section>
       )}
 
-      {/* Why CampusX */}
+      {/* Apple 2x2 Bento Feature Grid ("Get to know CampusX") */}
       <section className="section">
         <div className="container">
           <div className="section-head">
-            <span className="section-eyebrow">Why CampusX</span>
-            <h2>Built to fix what WhatsApp groups can't</h2>
+            <span className="section-eyebrow">Exclusively for NIT Kurukshetra</span>
+            <h2>Get to know CampusX.</h2>
           </div>
-          <div className="why-grid">
-            {WHY_CAMPUSX.map(({ icon: Icon, title, text }) => (
-              <div className="why-card" key={title}>
-                <div className="why-icon">
-                  <Icon />
-                </div>
-                <h3>{title}</h3>
-                <p>{text}</p>
+
+          <div className="apple-bento-grid">
+            <div className="apple-bento-card">
+              <div>
+                <span className="bento-tag">100% Student Verified</span>
+                <h3>Only @nitkkr.ac.in emails.</h3>
+                <p>
+                  No external dealers, brokers, or spam accounts. Every buyer and seller is an authenticated peer student on campus.
+                </p>
               </div>
-            ))}
+            </div>
+
+            <div className="apple-bento-card">
+              <div>
+                <span className="bento-tag">End-to-End Encrypted</span>
+                <h3>Private, hardware-grade chat.</h3>
+                <p>
+                  Built directly with Web Crypto API RSA-OAEP and AES-GCM cryptography. Your negotiations and private contacts remain exclusively between you and the seller.
+                </p>
+              </div>
+            </div>
+
+            <div className="apple-bento-card">
+              <div>
+                <span className="bento-tag">In-Person Campus Meetups</span>
+                <h3>Safe handovers inside campus.</h3>
+                <p>
+                  Inspect bicycles, textbooks, and electronics in daylight at Central Library, Student Activity Centre (SAC), or hostel gates before paying.
+                </p>
+              </div>
+            </div>
+
+            <div className="apple-bento-card">
+              <div>
+                <span className="bento-tag">Zero Platform Fees</span>
+                <h3>Fair peer-to-peer student pricing.</h3>
+                <p>
+                  Keep 100% of what you make. No commission cuts, no listing fees, and instant in-person UPI settlements.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>

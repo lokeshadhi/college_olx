@@ -1,74 +1,134 @@
 /* ==========================================================================
-   CampusX Design Tokens
-   Palette: ink navy + cream paper + a stamped gold accent, like a campus
-   noticeboard. Display face Fraunces (academic, characterful), body Inter,
-   utility IBM Plex Mono for prices/tags — like a stamped price ticket.
+   CampusX Design Tokens & Design System
+   Apple.com Inspired Premium Minimalist Aesthetic
+   SF Pro Typography, Pure Canvas, #F5F5F7 Cards, Apple Blue #0071E3
    ========================================================================== */
 
 :root {
-  /* Color: light theme (default) */
-  --color-ink: #16213E;
-  --color-ink-soft: #2C3A5E;
-  --color-paper: #F8F6F0;
-  --color-paper-raised: #FFFFFF;
-  --color-gold: #E1A73B;
-  --color-gold-dark: #B8842A;
-  --color-sage: #4F7566;
-  --color-coral: #D9634B;
-  --color-text: #1D2333;
-  --color-text-muted: #5B6478;
-  --color-border: #E4DFD2;
-  --color-shadow: rgba(22, 33, 62, 0.08);
+  /* Core Apple Brand Colors */
+  --color-brand-primary: #1D1D1F;       /* Apple Signature Slate Black */
+  --color-brand-primary-light: #424245;
+  --color-brand-accent: #0071E3;        /* Apple System Blue */
+  --color-brand-accent-hover: #0077ED;  /* Active Apple Blue */
+  --color-brand-accent-subtle: rgba(0, 113, 227, 0.08);
+  --color-apple-orange: #F56300;        /* Apple Promotional Badge Orange */
+  --color-apple-blue: #0071E3;
 
-  --gradient-cta: linear-gradient(135deg, #E1A73B 0%, #D9634B 100%);
+  /* Functional Status Colors (Apple Human Interface Guidelines) */
+  --color-success: #34C759;             /* Apple Green */
+  --color-success-bg: rgba(52, 199, 89, 0.12);
+  --color-danger: #FF3B30;              /* Apple Red */
+  --color-danger-bg: rgba(255, 59, 48, 0.12);
+  --color-warning: #FF9500;             /* Apple Amber */
+  --color-warning-bg: rgba(255, 149, 0, 0.12);
+  --color-info: #0071E3;                /* Apple Blue Info */
+  --color-info-bg: rgba(0, 113, 227, 0.12);
 
-  --font-display: "Fraunces", Georgia, serif;
-  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  /* Light Theme Surfaces & Text (Apple White Canvas) */
+  --color-ink: #1D1D1F;
+  --color-ink-soft: #424245;
+  --color-paper: #FFFFFF;               /* Apple Pure White Canvas */
+  --color-paper-raised: #F5F5F7;        /* Apple Signature Card Fill */
+  --color-paper-subtle: #E8E8ED;        /* Apple Hover / Secondary Fill */
+  --color-text: #1D1D1F;
+  --color-text-muted: #86868B;          /* Apple Iconic Muted Grey */
+  --color-text-subtle: #A1A1A6;
+  --color-border: #E5E5EA;              /* Hairline Apple Divider */
+  --color-border-hover: #D2D2D7;
+  --color-shadow: rgba(0, 0, 0, 0.04);
 
+  /* Compatibility mappings across components */
+  --color-gold: var(--color-brand-accent);
+  --color-gold-dark: var(--color-brand-accent-hover);
+  --color-sage: var(--color-success);
+  --color-coral: var(--color-danger);
+  --color-primary: #0071E3;             /* Apple Blue CTA */
+  --color-crimson: #FF3B30;
+
+  /* Gradients */
+  --gradient-cta: linear-gradient(180deg, #0077ED 0%, #0071E3 100%);
+  --gradient-accent: linear-gradient(135deg, #0071E3 0%, #00C7BE 100%);
+  --gradient-card-glow: radial-gradient(circle at 50% 0%, rgba(0, 113, 227, 0.06) 0%, transparent 70%);
+
+  /* Apple Typography Scale */
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  /* Apple Radii (Pill CTA & Bento Card Radii) */
+  --radius-xs: 4px;
   --radius-sm: 8px;
   --radius-md: 14px;
-  --radius-lg: 22px;
-  --radius-full: 999px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;                   /* Apple Showcase Bento Corner */
+  --radius-full: 9999px;               /* Apple Capsule Pill Button */
 
-  --shadow-sm: 0 2px 8px var(--color-shadow);
-  --shadow-md: 0 8px 24px var(--color-shadow);
-  --shadow-lg: 0 20px 48px rgba(22, 33, 62, 0.14);
+  /* Layered Apple Subtle Shadows */
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px 0 rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 12px 32px -4px rgba(0, 0, 0, 0.08);
+  --shadow-xl: 0 20px 48px -8px rgba(0, 0, 0, 0.12);
+  --shadow-hover: 0 14px 28px -4px rgba(0, 0, 0, 0.09);
 
-  --container-width: 1240px;
-  --transition: 180ms ease;
+  /* Layout Container */
+  --container-width: 1200px;
+  --transition: 180ms cubic-bezier(0.25, 1, 0.5, 1);
+  --transition-smooth: 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 [data-theme="dark"] {
-  --color-ink: #EDEAE0;
-  --color-ink-soft: #C9C4B4;
-  --color-paper: #12172A;
-  --color-paper-raised: #1B2138;
-  --color-gold: #F0BB5C;
-  --color-gold-dark: #E1A73B;
-  --color-sage: #7CA695;
-  --color-coral: #E58771;
-  --color-text: #EDEAE0;
-  --color-text-muted: #9CA3B8;
-  --color-border: #2B3253;
-  --color-shadow: rgba(0, 0, 0, 0.35);
+  /* Apple Dark Theme Surfaces & Text (Pure OLED Black) */
+  --color-ink: #F5F5F7;
+  --color-ink-soft: #D2D2D7;
+  --color-paper: #000000;               /* Apple OLED Canvas */
+  --color-paper-raised: #161617;        /* Apple Dark Card */
+  --color-paper-subtle: #1D1D1F;        /* Apple Secondary Dark Fill */
+  --color-brand-primary: #F5F5F7;
+  --color-brand-primary-light: #D2D2D7;
+  --color-brand-accent: #2997FF;        /* Apple Blue Dark */
+  --color-brand-accent-hover: #409CFF;
+  --color-brand-accent-subtle: rgba(41, 151, 255, 0.16);
+
+  --color-text: #F5F5F7;
+  --color-text-muted: #86868B;
+  --color-text-subtle: #6E6E73;
+  --color-border: rgba(255, 255, 255, 0.12);
+  --color-border-hover: rgba(255, 255, 255, 0.22);
+  --color-shadow: rgba(0, 0, 0, 0.7);
+
+  --color-success: #30D158;
+  --color-success-bg: rgba(48, 209, 88, 0.16);
+  --color-danger: #FF453A;
+  --color-danger-bg: rgba(255, 69, 58, 0.16);
+  --color-warning: #FF9F0A;
+  --color-warning-bg: rgba(255, 159, 10, 0.16);
+
+  --color-primary: #2997FF;
+  --gradient-cta: linear-gradient(180deg, #2997FF 0%, #0071E3 100%);
+  --shadow-sm: 0 2px 8px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 16px 0 rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 12px 32px -4px rgba(0, 0, 0, 0.7);
+  --shadow-hover: 0 14px 28px -4px rgba(0, 0, 0, 0.8);
 }
 
-* {
+/* Reset & Global Elements */
+*, *::before, *::after {
   box-sizing: border-box;
 }
 
 html {
   scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
   }
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -80,25 +140,30 @@ body {
   background-color: var(--color-paper);
   color: var(--color-text);
   font-family: var(--font-body);
-  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
   transition: background-color var(--transition), color var(--transition);
+  min-height: 100vh;
 }
 
-h1, h2, h3, h4 {
+h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
   color: var(--color-ink);
-  line-height: 1.15;
-  margin: 0 0 0.5em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 0 0 0.5rem;
 }
 
 p {
   line-height: 1.6;
   color: var(--color-text-muted);
+  margin: 0 0 1rem;
 }
 
 a {
   color: inherit;
   text-decoration: none;
+  transition: color var(--transition);
 }
 
 button, input, textarea, select {
@@ -107,11 +172,12 @@ button, input, textarea, select {
 
 img {
   max-width: 100%;
+  height: auto;
   display: block;
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-gold-dark);
+  outline: 2px solid var(--color-brand-accent);
   outline-offset: 2px;
 }
 
@@ -119,18 +185,33 @@ img {
   width: 100%;
   max-width: var(--container-width);
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 20px;
+}
+
+@media (min-width: 768px) {
+  .container {
+    padding: 0 32px;
+  }
 }
 
 .mono-tag {
   font-family: var(--font-mono);
-  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
 }
 
+/* Modern Scrollbars */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--color-border);
   border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-subtle);
 }

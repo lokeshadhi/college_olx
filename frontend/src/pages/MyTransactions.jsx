@@ -183,30 +183,16 @@ const MyTransactions = () => {
         <div
           style={{
             display: "flex",
-            gap: "10px",
+            gap: "8px",
             marginBottom: "24px",
-            borderBottom: "1px solid var(--color-border, #E4DFD2)",
-            paddingBottom: "10px",
+            borderBottom: "1px solid var(--color-border)",
+            paddingBottom: "12px",
           }}
         >
           <button
             type="button"
             onClick={() => handleTabChange("all")}
-            style={{
-              background:
-                activeTab === "all" ? "var(--color-ink, #16213E)" : "transparent",
-              color:
-                activeTab === "all"
-                  ? "var(--color-paper, #F8F6F0)"
-                  : "var(--color-text-muted, #5B6478)",
-              border: "none",
-              borderRadius: "999px",
-              padding: "7px 18px",
-              fontSize: "0.88rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              transition: "all 150ms ease",
-            }}
+            className={`btn btn-sm ${activeTab === "all" ? "btn-primary" : "btn-outline"}`}
           >
             All Deals ({transactions.length})
           </button>
@@ -214,49 +200,17 @@ const MyTransactions = () => {
           <button
             type="button"
             onClick={() => handleTabChange("purchases")}
-            style={{
-              background:
-                activeTab === "purchases"
-                  ? "var(--color-ink, #16213E)"
-                  : "transparent",
-              color:
-                activeTab === "purchases"
-                  ? "var(--color-paper, #F8F6F0)"
-                  : "var(--color-text-muted, #5B6478)",
-              border: "none",
-              borderRadius: "999px",
-              padding: "7px 18px",
-              fontSize: "0.88rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              transition: "all 150ms ease",
-            }}
+            className={`btn btn-sm ${activeTab === "purchases" ? "btn-primary" : "btn-outline"}`}
           >
-            Purchases ({purchases.length})
+            My Bids & Purchases ({purchases.length})
           </button>
 
           <button
             type="button"
             onClick={() => handleTabChange("sales")}
-            style={{
-              background:
-                activeTab === "sales"
-                  ? "var(--color-ink, #16213E)"
-                  : "transparent",
-              color:
-                activeTab === "sales"
-                  ? "var(--color-paper, #F8F6F0)"
-                  : "var(--color-text-muted, #5B6478)",
-              border: "none",
-              borderRadius: "999px",
-              padding: "7px 18px",
-              fontSize: "0.88rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              transition: "all 150ms ease",
-            }}
+            className={`btn btn-sm ${activeTab === "sales" ? "btn-primary" : "btn-outline"}`}
           >
-            Sales ({sales.length})
+            My Sales & Offers ({sales.length})
           </button>
         </div>
 

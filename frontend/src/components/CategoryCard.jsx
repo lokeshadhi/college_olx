@@ -30,8 +30,8 @@ const CategoryCard = ({ name }) => {
 
   return (
     <Link to={`/browse?category=${encodeURIComponent(name)}`} className="category-card">
-      <div className="cat-icon">
-        <Icon />
+      <div className="cat-icon-wrap">
+        <Icon size={20} />
       </div>
       <div className="cat-name">{name}</div>
     </Link>

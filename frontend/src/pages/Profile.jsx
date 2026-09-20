@@ -144,18 +144,8 @@ const Profile = () => {
             </div>
             {user.isEmailVerified ? (
               <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  marginTop: "8px",
-                  padding: "4px 12px",
-                  borderRadius: "999px",
-                  background: "rgba(27, 77, 62, 0.1)",
-                  color: "var(--color-primary, #1B4D3E)",
-                  fontSize: "0.82rem",
-                  fontWeight: 700,
-                }}
+                className="badge badge-verified"
+                style={{ marginTop: "10px" }}
               >
                 <FiCheckCircle />
                 <span>Verified Student</span>
@@ -167,29 +157,17 @@ const Profile = () => {
                   flexDirection: "column",
                   alignItems: "center",
                   gap: "4px",
-                  marginTop: "8px",
+                  marginTop: "10px",
                 }}
               >
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    padding: "4px 10px",
-                    borderRadius: "999px",
-                    background: "rgba(217, 99, 75, 0.1)",
-                    color: "var(--color-coral, #D9634B)",
-                    fontSize: "0.8rem",
-                    fontWeight: 600,
-                  }}
-                >
+                <span className="badge badge-sold">
                   <FiAlertCircle /> Unverified Student
                 </span>
                 <Link
                   to={`/verify-email?email=${encodeURIComponent(user.email || "")}`}
                   style={{
                     fontSize: "0.82rem",
-                    color: "var(--color-primary, #1B4D3E)",
+                    color: "var(--color-brand-accent)",
                     fontWeight: 600,
                     textDecoration: "underline",
                   }}
@@ -230,57 +208,56 @@ const Profile = () => {
               style={{
                 width: "100%",
                 marginTop: "18px",
-                background: "var(--color-paper, #FAF8F5)",
-                border: "1px solid var(--color-border, #E4DFD2)",
-                borderRadius: "12px",
-                padding: "12px 14px",
+                background: "var(--color-paper-subtle)",
+                border: "1px solid var(--color-border)",
+                borderRadius: "var(--radius-md)",
+                padding: "16px",
                 textAlign: "left",
                 boxSizing: "border-box",
               }}
             >
               <div
                 style={{
-                  fontSize: "0.74rem",
+                  fontSize: "0.76rem",
                   fontWeight: 700,
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
-                  color: "var(--color-text-muted, #5B6478)",
-                  marginBottom: "10px",
+                  color: "var(--color-brand-accent)",
+                  marginBottom: "12px",
                 }}
               >
                 Campus Reputation
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 {/* Seller Rating Row */}
                 <div
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    fontSize: "0.84rem",
-                    minHeight: "28px",
-                    paddingBottom: "6px",
-                    borderBottom: "1px solid var(--color-border, #E4DFD2)",
+                    fontSize: "0.86rem",
+                    paddingBottom: "8px",
+                    borderBottom: "1px solid var(--color-border)",
                   }}
                 >
-                  <span style={{ color: "var(--color-text, #1D2333)", fontWeight: 500, whiteSpace: "nowrap" }}>
+                  <span style={{ color: "var(--color-ink)", fontWeight: 500 }}>
                     Seller Rating
                   </span>
-                  <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
                     {user.sellerRating > 0 ? (
                       <>
-                        <FaStar size={13} color="#E1A73B" style={{ flexShrink: 0 }} />
-                        <span style={{ fontWeight: 700, fontSize: "0.86rem", color: "var(--color-ink, #16213E)" }}>
+                        <FaStar size={13} color="var(--color-brand-accent)" />
+                        <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--color-ink)" }}>
                           {Number(user.sellerRating).toFixed(1)}
                         </span>
-                        <span style={{ fontSize: "0.76rem", color: "var(--color-text-muted, #5B6478)", whiteSpace: "nowrap" }}>
-                          ({user.sellerReviewCount || 0} {(user.sellerReviewCount || 0) === 1 ? "review" : "reviews"})
+                        <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted)" }}>
+                          ({user.sellerReviewCount || 0})
                         </span>
                       </>
                     ) : (
-                      <span style={{ color: "var(--color-text-muted, #5B6478)", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
-                        No reviews
+                      <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted)" }}>
+                        No reviews yet
                       </span>
                     )}
                   </div>
@@ -292,28 +269,27 @@ const Profile = () => {
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    fontSize: "0.84rem",
-                    minHeight: "28px",
+                    fontSize: "0.86rem",
                     paddingTop: "2px",
                   }}
                 >
-                  <span style={{ color: "var(--color-text, #1D2333)", fontWeight: 500, whiteSpace: "nowrap" }}>
+                  <span style={{ color: "var(--color-ink)", fontWeight: 500 }}>
                     Buyer Rating
                   </span>
-                  <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
                     {user.buyerRating > 0 ? (
                       <>
-                        <FaStar size={13} color="#E1A73B" style={{ flexShrink: 0 }} />
-                        <span style={{ fontWeight: 700, fontSize: "0.86rem", color: "var(--color-ink, #16213E)" }}>
+                        <FaStar size={13} color="var(--color-brand-accent)" />
+                        <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--color-ink)" }}>
                           {Number(user.buyerRating).toFixed(1)}
                         </span>
-                        <span style={{ fontSize: "0.76rem", color: "var(--color-text-muted, #5B6478)", whiteSpace: "nowrap" }}>
-                          ({user.buyerReviewCount || 0} {(user.buyerReviewCount || 0) === 1 ? "review" : "reviews"})
+                        <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted)" }}>
+                          ({user.buyerReviewCount || 0})
                         </span>
                       </>
                     ) : (
-                      <span style={{ color: "var(--color-text-muted, #5B6478)", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
-                        No reviews
+                      <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted)" }}>
+                        No reviews yet
                       </span>
                     )}
                   </div>

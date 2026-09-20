@@ -356,16 +356,17 @@ const ProductDetails = () => {
               )}
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
               {/* 1. SELLER SEES INCOMING BIDS & OFFERS */}
               {isOwner && txnInfo?.pendingRequests?.length > 0 && (
                 <div
                   style={{
-                    background: "rgba(27, 77, 62, 0.05)",
-                    border: "1px solid rgba(27, 77, 62, 0.25)",
-                    borderRadius: "var(--radius-sm, 8px)",
-                    padding: "16px",
+                    background: "var(--color-paper-subtle)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: "var(--radius-md)",
+                    padding: "18px",
                     textAlign: "left",
+                    boxShadow: "var(--shadow-xs)",
                   }}
                 >
                   <div
@@ -373,7 +374,7 @@ const ProductDetails = () => {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      marginBottom: "12px",
+                      marginBottom: "14px",
                     }}
                   >
                     <div
@@ -382,20 +383,20 @@ const ProductDetails = () => {
                         alignItems: "center",
                         gap: "8px",
                         fontWeight: 700,
-                        color: "var(--color-primary, #1B4D3E)",
+                        color: "var(--color-ink)",
                         fontSize: "0.95rem",
                       }}
                     >
-                      <FiShoppingBag size={18} />
+                      <FiShoppingBag size={18} style={{ color: "var(--color-brand-accent)" }} />
                       <span>
                         Incoming Offers & Bids ({txnInfo.pendingRequests.length})
                       </span>
                     </div>
                     <span
                       style={{
-                        fontSize: "0.72rem",
+                        fontSize: "0.74rem",
                         fontWeight: 600,
-                        color: "var(--color-text-muted, #5B6478)",
+                        color: "var(--color-text-muted)",
                       }}
                     >
                       Highest offer first
@@ -407,11 +408,11 @@ const ProductDetails = () => {
                       <div
                         key={req._id}
                         style={{
-                          background: "var(--color-paper-raised, #FFFFFF)",
-                          border: "1px solid var(--color-border, #E4DFD2)",
-                          borderRadius: "8px",
-                          padding: "12px 14px",
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                          background: "var(--color-paper-raised)",
+                          border: "1px solid var(--color-border)",
+                          borderRadius: "var(--radius-sm)",
+                          padding: "14px",
+                          boxShadow: "var(--shadow-xs)",
                         }}
                       >
                         <div
@@ -423,23 +424,25 @@ const ProductDetails = () => {
                           }}
                         >
                           <div>
-                            <span style={{ fontWeight: 700, color: "var(--color-ink, #16213E)" }}>
+                            <span style={{ fontWeight: 700, color: "var(--color-ink)" }}>
                               {req.buyer?.name || "Student"}
                             </span>
                             {req.buyer?.isEmailVerified && (
                               <FiCheckCircle
-                                size={12}
+                                size={13}
                                 style={{
-                                  color: "var(--color-primary, #1B4D3E)",
-                                  marginLeft: "4px",
+                                  color: "var(--color-success)",
+                                  marginLeft: "5px",
                                   verticalAlign: "middle",
                                 }}
+                                title="Verified NIT Kurukshetra Student"
                               />
                             )}
                             <div
                               style={{
-                                fontSize: "0.76rem",
-                                color: "var(--color-text-muted, #5B6478)",
+                                fontSize: "0.78rem",
+                                color: "var(--color-text-muted)",
+                                marginTop: "2px",
                               }}
                             >
                               {req.buyer?.department} · {req.buyer?.year}
@@ -450,13 +453,13 @@ const ProductDetails = () => {
                           <div style={{ textAlign: "right" }}>
                             <div
                               style={{
-                                fontFamily: "var(--font-mono, monospace)",
-                                fontSize: "1.15rem",
+                                fontFamily: "var(--font-mono)",
+                                fontSize: "1.2rem",
                                 fontWeight: 700,
                                 color:
                                   req.amount >= product.price
-                                    ? "var(--color-sage, #4F7566)"
-                                    : "var(--color-coral, #D9634B)",
+                                    ? "var(--color-success)"
+                                    : "var(--color-brand-accent)",
                               }}
                             >
                               ₹{Number(req.amount).toLocaleString("en-IN")}
@@ -464,14 +467,15 @@ const ProductDetails = () => {
                             <span
                               style={{
                                 fontSize: "0.7rem",
-                                color: "var(--color-text-muted, #5B6478)",
+                                color: "var(--color-text-muted)",
+                                fontWeight: 500,
                               }}
                             >
                               {req.amount > product.price
                                 ? "Above asking price"
                                 : req.amount === product.price
                                 ? "Asking price"
-                                : "Below asking price"}
+                                : "Proposed offer"}
                             </span>
                           </div>
                         </div>
@@ -479,22 +483,25 @@ const ProductDetails = () => {
                         {req.meetupLocation && (
                           <div
                             style={{
-                              fontSize: "0.8rem",
-                              color: "var(--color-text-muted, #5B6478)",
-                              marginBottom: "4px",
+                              fontSize: "0.82rem",
+                              color: "var(--color-text-muted)",
+                              margin: "6px 0 4px",
                             }}
                           >
-                            📍 {req.meetupLocation}
+                            📍 Suggested spot: {req.meetupLocation}
                           </div>
                         )}
 
                         {req.notes && (
                           <div
                             style={{
-                              fontSize: "0.8rem",
-                              color: "var(--color-ink, #16213E)",
+                              fontSize: "0.82rem",
+                              color: "var(--color-ink)",
                               fontStyle: "italic",
-                              marginBottom: "10px",
+                              margin: "4px 0 12px",
+                              padding: "6px 10px",
+                              background: "var(--color-paper-subtle)",
+                              borderRadius: "var(--radius-xs)",
                             }}
                           >
                             "{req.notes}"
@@ -511,9 +518,6 @@ const ProductDetails = () => {
                             disabled={Boolean(actionLoading)}
                             style={{
                               flex: 1,
-                              background: "var(--color-primary, #1B4D3E)",
-                              padding: "6px 12px",
-                              fontSize: "0.82rem",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
@@ -528,10 +532,8 @@ const ProductDetails = () => {
                             onClick={() => handleDeclineRequest(req._id)}
                             disabled={Boolean(actionLoading)}
                             style={{
-                              color: "var(--color-crimson, #A33B3B)",
-                              borderColor: "rgba(163, 59, 59, 0.4)",
-                              padding: "6px 10px",
-                              fontSize: "0.82rem",
+                              color: "var(--color-danger)",
+                              borderColor: "var(--color-border)",
                             }}
                           >
                             Decline
@@ -547,11 +549,12 @@ const ProductDetails = () => {
               {!isOwner && txnInfo?.transaction?.status === "PENDING" && txnInfo?.isBuyer && (
                 <div
                   style={{
-                    background: "rgba(225, 167, 59, 0.12)",
-                    border: "1px solid rgba(225, 167, 59, 0.4)",
-                    borderRadius: "var(--radius-sm, 8px)",
-                    padding: "16px",
+                    background: "var(--color-paper-subtle)",
+                    border: "1px solid var(--color-brand-accent)",
+                    borderRadius: "var(--radius-md)",
+                    padding: "18px",
                     textAlign: "center",
+                    boxShadow: "var(--shadow-xs)",
                   }}
                 >
                   <div
@@ -561,20 +564,20 @@ const ProductDetails = () => {
                       justifyContent: "center",
                       gap: "8px",
                       fontWeight: 700,
-                      color: "var(--color-gold-dark, #B8842A)",
+                      color: "var(--color-brand-accent)",
                       marginBottom: "6px",
-                      fontSize: "0.92rem",
+                      fontSize: "0.95rem",
                     }}
                   >
                     <FiClock />
-                    <span>Your Bid Offer is Pending</span>
+                    <span>Your Proposed Offer is Pending</span>
                   </div>
                   <div
                     style={{
-                      fontFamily: "var(--font-mono, monospace)",
-                      fontSize: "1.3rem",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "1.4rem",
                       fontWeight: 700,
-                      color: "var(--color-ink, #16213E)",
+                      color: "var(--color-ink)",
                       margin: "4px 0",
                     }}
                   >
@@ -582,9 +585,9 @@ const ProductDetails = () => {
                   </div>
                   <p
                     style={{
-                      margin: "0 0 12px",
+                      margin: "0 0 14px",
                       fontSize: "0.84rem",
-                      color: "var(--color-text-muted, #5B6478)",
+                      color: "var(--color-text-muted)",
                     }}
                   >
                     Listed Price: ₹{Number(product.price).toLocaleString("en-IN")}. Waiting for seller to review and accept your offer.
@@ -597,14 +600,8 @@ const ProductDetails = () => {
                         setBidAmount(txnInfo.transaction.amount);
                         setBuyModalOpen(true);
                       }}
-                      style={{
-                        fontSize: "0.82rem",
-                        padding: "6px 14px",
-                        background: "var(--color-gold, #E1A73B)",
-                        border: "none",
-                      }}
                     >
-                      Update Bid
+                      Update Offer
                     </Button>
                     <Button
                       variant="outline"
@@ -612,19 +609,16 @@ const ProductDetails = () => {
                       onClick={() => handleCancelRequest(txnInfo.transaction._id)}
                       loading={actionLoading === txnInfo.transaction._id}
                       style={{
-                        fontSize: "0.82rem",
-                        padding: "6px 14px",
-                        color: "var(--color-crimson, #A33B3B)",
-                        borderColor: "rgba(163, 59, 59, 0.4)",
+                        color: "var(--color-danger)",
                       }}
                     >
-                      Withdraw Bid
+                      Withdraw Offer
                     </Button>
                   </div>
                 </div>
               )}
 
-              {/* 3. BUY PRODUCT / SUBMIT BID BUTTON (when product is available, user is not owner, and no pending/completed txn) */}
+              {/* 3. BUY PRODUCT / SUBMIT BID BUTTON */}
               {!isSold && !isOwner && (!txnInfo?.transaction || txnInfo.transaction.status === "CANCELLED") && (
                 <Button
                   variant="primary"
@@ -636,11 +630,8 @@ const ProductDetails = () => {
                     justifyContent: "center",
                     gap: "0.5rem",
                     fontSize: "1rem",
-                    padding: "12px",
-                    background:
-                      "var(--gradient-cta, linear-gradient(135deg, #E1A73B 0%, #D9634B 100%))",
-                    boxShadow: "0 4px 14px rgba(225, 167, 59, 0.35)",
-                    border: "none",
+                    padding: "13px 20px",
+                    boxShadow: "var(--shadow-md)",
                   }}
                 >
                   <FiShoppingBag size={18} /> Make Offer / Buy (₹{Number(product.price).toLocaleString("en-IN")})
@@ -652,29 +643,29 @@ const ProductDetails = () => {
                 <div
                   style={{
                     background: txnInfo.hasReviewed
-                      ? "rgba(79, 117, 102, 0.1)"
-                      : "rgba(225, 167, 59, 0.12)",
+                      ? "var(--color-success-bg)"
+                      : "var(--color-paper-subtle)",
                     border: `1px solid ${
                       txnInfo.hasReviewed
-                        ? "rgba(79, 117, 102, 0.3)"
-                        : "rgba(225, 167, 59, 0.4)"
+                        ? "rgba(21, 128, 61, 0.3)"
+                        : "var(--color-border)"
                     }`,
-                    borderRadius: "var(--radius-sm, 8px)",
-                    padding: "12px 16px",
+                    borderRadius: "var(--radius-md)",
+                    padding: "16px",
                     textAlign: "center",
                   }}
                 >
                   <div
                     style={{
-                      fontWeight: 600,
-                      fontSize: "0.9rem",
-                      color: "var(--color-ink, #16213E)",
-                      marginBottom: "6px",
+                      fontWeight: 700,
+                      fontSize: "0.92rem",
+                      color: "var(--color-ink)",
+                      marginBottom: "8px",
                     }}
                   >
                     {txnInfo.isBuyer
-                      ? "You purchased this item!"
-                      : "You sold this item!"}
+                      ? "Deal Completed! You purchased this item."
+                      : "Deal Completed! You sold this item."}
                   </div>
 
                   {txnInfo.hasReviewed ? (
@@ -684,8 +675,8 @@ const ProductDetails = () => {
                         alignItems: "center",
                         justifyContent: "center",
                         gap: "6px",
-                        color: "var(--color-sage, #4F7566)",
-                        fontSize: "0.86rem",
+                        color: "var(--color-success)",
+                        fontSize: "0.88rem",
                         fontWeight: 600,
                       }}
                     >
@@ -704,20 +695,18 @@ const ProductDetails = () => {
                         alignItems: "center",
                         justifyContent: "center",
                         gap: "0.5rem",
-                        background: "var(--color-gold, #E1A73B)",
-                        border: "none",
                       }}
                     >
                       <FiStar />{" "}
-                      {txnInfo.isBuyer ? "Rate Seller" : "Rate Buyer"}
+                      {txnInfo.isBuyer ? "Rate Seller & Experience" : "Rate Buyer & Experience"}
                     </Button>
                   )}
                 </div>
               )}
 
-              {/* 3. CHAT WITH SELLER */}
+              {/* 5. CHAT WITH SELLER */}
               <Button
-                variant="secondary"
+                variant="outline"
                 block
                 disabled={isSold || isOwner}
                 loading={startingChat}
@@ -733,19 +722,18 @@ const ProductDetails = () => {
                 {isOwner
                   ? "Your Listing"
                   : isSold
-                  ? "Already Sold"
-                  : "Chat with Seller"}
+                  ? "Listing Already Sold"
+                  : "Chat with Seller (Encrypted)"}
               </Button>
 
-              {/* 4. CALL SELLER */}
+              {/* 6. CALL SELLER */}
               {!isOwner && (
                 <a
                   href={`tel:${product.seller?.phone}`}
                   style={{ display: "block" }}
                 >
-                  <Button variant="secondary" block disabled={isSold}>
-                    <FiPhone style={{ marginRight: "0.4rem" }} /> Call Seller (
-                    {product.seller?.phone})
+                  <Button variant="ghost" block disabled={isSold}>
+                    <FiPhone style={{ marginRight: "0.4rem" }} /> Call Seller ({product.seller?.phone})
                   </Button>
                 </a>
               )}
@@ -774,35 +762,8 @@ const ProductDetails = () => {
 
         {/* Buy Confirmation Modal */}
         {buyModalOpen && (
-          <div
-            className="modal-backdrop"
-            onClick={() => !buying && setBuyModalOpen(false)}
-            style={{
-              position: "fixed",
-              inset: 0,
-              backgroundColor: "rgba(22, 33, 62, 0.65)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 1100,
-              padding: "16px",
-              backdropFilter: "blur(4px)",
-            }}
-          >
-            <div
-              className="modal-box"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                background: "var(--color-paper-raised, #FFFFFF)",
-                borderRadius: "var(--radius-lg, 22px)",
-                border: "1px solid var(--color-border, #E4DFD2)",
-                boxShadow: "var(--shadow-lg, 0 20px 48px rgba(22, 33, 62, 0.2))",
-                maxWidth: "480px",
-                width: "100%",
-                padding: "26px",
-                position: "relative",
-              }}
-            >
+          <div className="modal-backdrop" onClick={() => !buying && setBuyModalOpen(false)}>
+            <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "480px" }}>
               <button
                 type="button"
                 onClick={() => !buying && setBuyModalOpen(false)}
@@ -813,7 +774,7 @@ const ProductDetails = () => {
                   right: "18px",
                   background: "transparent",
                   border: "none",
-                  color: "var(--color-text-muted, #5B6478)",
+                  color: "var(--color-text-muted)",
                   cursor: "pointer",
                 }}
               >
@@ -821,31 +782,9 @@ const ProductDetails = () => {
               </button>
 
               <div style={{ marginBottom: "16px" }}>
-                <span
-                  style={{
-                    fontSize: "0.75rem",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    color: "var(--color-gold-dark, #B8842A)",
-                    background: "rgba(225, 167, 59, 0.12)",
-                    padding: "3px 8px",
-                    borderRadius: "4px",
-                    display: "inline-block",
-                    marginBottom: "8px",
-                  }}
-                >
-                  Campus Deal
-                </span>
-                <h2
-                  style={{
-                    fontFamily: "var(--font-display, Georgia, serif)",
-                    fontSize: "1.35rem",
-                    margin: 0,
-                    color: "var(--color-ink, #16213E)",
-                  }}
-                >
-                  Make a Bid / Purchase Offer
+                <span className="section-eyebrow">Campus Deal</span>
+                <h2 style={{ fontSize: "1.35rem", margin: 0 }}>
+                  Make an Offer / Bid
                 </h2>
               </div>
 
@@ -853,12 +792,12 @@ const ProductDetails = () => {
                 style={{
                   margin: "0 0 16px",
                   fontSize: "0.86rem",
-                  color: "var(--color-text-muted, #5B6478)",
+                  color: "var(--color-text-muted)",
                   lineHeight: 1.5,
                 }}
               >
-                Submit your proposed offer for <strong>{product.title}</strong> to <strong>{product.seller?.name || "the seller"}</strong>.
-                The seller can review all incoming bids and accept the best one.
+                Submit your proposed offer for <strong>{product.title}</strong> to{" "}
+                <strong>{product.seller?.name || "the seller"}</strong>. The seller will review all incoming bids.
               </p>
 
               {/* Product summary */}
@@ -868,8 +807,9 @@ const ProductDetails = () => {
                   gap: "12px",
                   alignItems: "center",
                   padding: "12px",
-                  background: "var(--color-paper, #F8F6F0)",
-                  borderRadius: "var(--radius-sm, 8px)",
+                  background: "var(--color-paper-subtle)",
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--color-border)",
                   marginBottom: "18px",
                 }}
               >
@@ -880,7 +820,7 @@ const ProductDetails = () => {
                     style={{
                       width: "54px",
                       height: "54px",
-                      borderRadius: "8px",
+                      borderRadius: "6px",
                       objectFit: "cover",
                     }}
                   />
@@ -889,7 +829,7 @@ const ProductDetails = () => {
                   <div
                     style={{
                       fontWeight: 700,
-                      color: "var(--color-ink, #16213E)",
+                      color: "var(--color-ink)",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -899,14 +839,15 @@ const ProductDetails = () => {
                   </div>
                   <div
                     style={{
-                      fontSize: "1.05rem",
+                      fontSize: "1.1rem",
                       fontWeight: 700,
-                      color: "var(--color-coral, #D9634B)",
+                      color: "var(--color-brand-accent)",
+                      fontFamily: "var(--font-mono)",
                     }}
                   >
                     ₹{Number(product.price).toLocaleString("en-IN")}
                   </div>
-                  <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #5B6478)" }}>
+                  <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)" }}>
                     Seller: {product.seller?.name} · {product.seller?.department}
                   </div>
                 </div>
@@ -926,7 +867,7 @@ const ProductDetails = () => {
                         top: "50%",
                         transform: "translateY(-50%)",
                         fontWeight: 700,
-                        color: "var(--color-ink, #16213E)",
+                        color: "var(--color-ink)",
                       }}
                     >
                       ₹
@@ -947,7 +888,7 @@ const ProductDetails = () => {
                   <div
                     style={{
                       fontSize: "0.78rem",
-                      color: "var(--color-text-muted, #5B6478)",
+                      color: "var(--color-text-muted)",
                       marginTop: "4px",
                     }}
                   >
@@ -984,7 +925,7 @@ const ProductDetails = () => {
                 <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
                   <Button
                     type="button"
-                    variant="secondary"
+                    variant="outline"
                     onClick={() => setBuyModalOpen(false)}
                     disabled={buying}
                   >
@@ -994,12 +935,8 @@ const ProductDetails = () => {
                     type="submit"
                     variant="primary"
                     loading={buying}
-                    style={{
-                      background:
-                        "var(--gradient-cta, linear-gradient(135deg, #E1A73B 0%, #D9634B 100%))",
-                    }}
                   >
-                    Submit Bid Offer
+                    Submit Offer
                   </Button>
                 </div>
               </form>

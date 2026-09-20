@@ -1,6 +1,19 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { FiSun, FiMoon, FiMenu, FiX } from "react-icons/fi";
+import {
+  FiSun,
+  FiMoon,
+  FiMenu,
+  FiX,
+  FiMessageSquare,
+  FiPlus,
+  FiUser,
+  FiPackage,
+  FiRepeat,
+  FiLogOut,
+  FiChevronDown,
+  FiSearch,
+} from "react-icons/fi";
 import { useAuth } from "../hooks/useAuth.js";
 import { useTheme } from "../hooks/useTheme.js";
 import { useSocket } from "../hooks/useSocket.js";
@@ -10,89 +23,79 @@ const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { unreadTotal } = useSocket();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
   const handleLogout = async () => {
+    setDropdownOpen(false);
+    setDrawerOpen(false);
     await logout();
-    setMenuOpen(false);
     navigate("/");
   };
 
-  const closeMenu = () => setMenuOpen(false);
+  const closeAll = () => {
+    setDrawerOpen(false);
+    setDropdownOpen(false);
+  };
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    if (dropdownOpen) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [dropdownOpen]);
 
   return (
     <header className="navbar">
       <div className="container navbar-inner">
-        <Link to="/" className="navbar-logo" onClick={closeMenu} aria-label="CampusX Marketplace">
-          <CampusLogo height={52} />
-        </Link>
+        <div className="navbar-left">
+          <Link to="/" className="navbar-logo" onClick={closeAll} aria-label="CampusX Home">
+            <CampusLogo height={50} />
+          </Link>
 
-        <nav className={`navbar-links ${menuOpen ? "open" : ""}`}>
-          <NavLink to="/" onClick={closeMenu} end>
-            Home
-          </NavLink>
-          <NavLink to="/browse" onClick={closeMenu}>
-            Browse Products
-          </NavLink>
-          {isAuthenticated && (
-            <NavLink to="/sell" onClick={closeMenu}>
-              Sell Product
+          <nav className="navbar-links">
+            <NavLink to="/" end>
+              Home
             </NavLink>
-          )}
-          {isAuthenticated && (
-            <NavLink to="/my-products" onClick={closeMenu}>
-              My Products
+            <NavLink to="/browse">
+              <FiSearch size={15} /> Browse
             </NavLink>
-          )}
-          {isAuthenticated && (
-            <NavLink to="/my-transactions" onClick={closeMenu}>
-              Transactions
-            </NavLink>
-          )}
-          {isAuthenticated && (
-            <NavLink to="/chat" onClick={closeMenu} style={{ position: "relative" }}>
-              Messages
-              {unreadTotal > 0 && (
-                <span
-                  style={{
-                    background: "var(--color-coral, #D9634B)",
-                    color: "#ffffff",
-                    fontSize: "0.68rem",
-                    fontWeight: 700,
-                    padding: "2px 6px",
-                    borderRadius: "999px",
-                    marginLeft: "6px",
-                  }}
-                >
-                  {unreadTotal}
-                </span>
-              )}
-            </NavLink>
-          )}
-          {isAuthenticated && (
-            <NavLink to="/profile" onClick={closeMenu}>
-              Profile
-            </NavLink>
-          )}
-          {!isAuthenticated && (
-            <>
-              <NavLink to="/login" onClick={closeMenu}>
-                Login
-              </NavLink>
-              <NavLink to="/register" onClick={closeMenu}>
-                Register
-              </NavLink>
-            </>
-          )}
-          {isAuthenticated && (
-            <button className="nav-link" onClick={handleLogout}>
-              Logout
-            </button>
-          )}
-        </nav>
+          </nav>
+        </div>
 
         <div className="navbar-actions">
+          {isAuthenticated && (
+            <Link to="/sell" className="btn-sell-nav" onClick={closeAll}>
+              <FiPlus size={16} />
+              <span>Sell Item</span>
+            </Link>
+          )}
+
+          {isAuthenticated && (
+            <Link
+              to="/chat"
+              className="nav-messages-btn"
+              onClick={closeAll}
+              title="Messages"
+              aria-label="Messages"
+            >
+              <FiMessageSquare />
+              {unreadTotal > 0 && (
+                <span className="nav-badge-pill">{unreadTotal > 9 ? "9+" : unreadTotal}</span>
+              )}
+            </Link>
+          )}
+
           <button
             className="theme-toggle"
             onClick={toggleTheme}
@@ -102,22 +105,156 @@ const Navbar = () => {
             {theme === "light" ? <FiMoon /> : <FiSun />}
           </button>
 
-          {isAuthenticated && (
-            <Link to="/profile" className="avatar-chip">
-              <span className="avatar-circle">{user.name?.charAt(0)?.toUpperCase()}</span>
-              {user.name?.split(" ")[0]}
-            </Link>
+          {isAuthenticated ? (
+            <div className="nav-user-container" ref={dropdownRef}>
+              <button
+                className="avatar-chip"
+                onClick={() => setDropdownOpen((prev) => !prev)}
+                aria-expanded={dropdownOpen}
+                aria-haspopup="true"
+              >
+                <span className="avatar-circle">
+                  {user.profileImage ? (
+                    <img src={user.profileImage} alt={user.name} />
+                  ) : (
+                    user.name?.charAt(0)?.toUpperCase()
+                  )}
+                </span>
+                <span className="avatar-name">{user.name?.split(" ")[0]}</span>
+                <FiChevronDown
+                  size={14}
+                  style={{
+                    transform: dropdownOpen ? "rotate(180deg)" : "none",
+                    transition: "transform 150ms ease",
+                  }}
+                />
+              </button>
+
+              {dropdownOpen && (
+                <div className="nav-dropdown">
+                  <div className="nav-dropdown-header">
+                    <div className="nav-dropdown-name">{user.name}</div>
+                    <div className="nav-dropdown-email">{user.email}</div>
+                  </div>
+
+                  <Link to="/profile" onClick={closeAll}>
+                    <FiUser size={15} /> My Profile & Reputation
+                  </Link>
+                  <Link to="/my-products" onClick={closeAll}>
+                    <FiPackage size={15} /> My Listings
+                  </Link>
+                  <Link to="/my-transactions" onClick={closeAll}>
+                    <FiRepeat size={15} /> Transactions & Bids
+                  </Link>
+
+                  <div className="nav-dropdown-divider" />
+
+                  <button className="nav-dropdown-logout" onClick={handleLogout}>
+                    <FiLogOut size={15} /> Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="navbar-links">
+              <NavLink to="/login" className="btn btn-outline btn-sm">
+                Log In
+              </NavLink>
+              <NavLink to="/register" className="btn btn-primary btn-sm">
+                Sign Up
+              </NavLink>
+            </div>
           )}
 
           <button
             className="navbar-burger"
-            onClick={() => setMenuOpen((o) => !o)}
-            aria-label="Toggle menu"
+            onClick={() => setDrawerOpen((prev) => !prev)}
+            aria-label="Toggle Navigation Menu"
           >
-            {menuOpen ? <FiX /> : <FiMenu />}
+            {drawerOpen ? <FiX /> : <FiMenu />}
           </button>
         </div>
       </div>
+
+      {/* Apple-style Sub-nav Announcement Ribbon */}
+      <div className="apple-announcement-ribbon">
+        <div className="container announcement-inner">
+          <span>
+            NIT Kurukshetra Student Network: Verified campus access, 0% platform fees, and safe in-person meetups.
+          </span>
+          <Link to="/browse" className="announcement-link" onClick={closeAll}>
+            Explore listings
+          </Link>
+        </div>
+      </div>
+
+      {/* Mobile Drawer */}
+      {drawerOpen && (
+        <>
+          <div className="mobile-overlay" onClick={closeAll} />
+          <aside className="mobile-drawer">
+            <div className="mobile-drawer-header">
+              <CampusLogo height={46} />
+              <button
+                onClick={closeAll}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-ink)" }}
+                aria-label="Close menu"
+              >
+                <FiX size={22} />
+              </button>
+            </div>
+
+            <nav className="mobile-nav-links">
+              <NavLink to="/" onClick={closeAll} end>
+                Home
+              </NavLink>
+              <NavLink to="/browse" onClick={closeAll}>
+                <FiSearch size={16} /> Browse Marketplace
+              </NavLink>
+
+              {isAuthenticated ? (
+                <>
+                  <NavLink to="/sell" onClick={closeAll} style={{ color: "var(--color-brand-accent)", fontWeight: 700 }}>
+                    <FiPlus size={16} /> Post Listing
+                  </NavLink>
+                  <NavLink to="/chat" onClick={closeAll}>
+                    <FiMessageSquare size={16} />
+                    Messages
+                    {unreadTotal > 0 && (
+                      <span className="badge badge-sold" style={{ marginLeft: "auto" }}>
+                        {unreadTotal}
+                      </span>
+                    )}
+                  </NavLink>
+                  <NavLink to="/my-products" onClick={closeAll}>
+                    <FiPackage size={16} /> My Listings
+                  </NavLink>
+                  <NavLink to="/my-transactions" onClick={closeAll}>
+                    <FiRepeat size={16} /> Transactions
+                  </NavLink>
+                  <NavLink to="/profile" onClick={closeAll}>
+                    <FiUser size={16} /> Student Profile
+                  </NavLink>
+                  <div className="nav-dropdown-divider" style={{ margin: "12px 0" }} />
+                  <button onClick={handleLogout} style={{ color: "var(--color-danger)" }}>
+                    <FiLogOut size={16} /> Log Out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="nav-dropdown-divider" style={{ margin: "12px 0" }} />
+                  <NavLink to="/login" onClick={closeAll}>
+                    Log In
+                  </NavLink>
+                  <NavLink to="/register" onClick={closeAll} style={{ color: "var(--color-brand-accent)", fontWeight: 700 }}>
+                    Sign Up with College Email
+                  </NavLink>
+                </>
+              )}
+            </nav>
+          </aside>
+        </>
+      )}
     </header>
   );
 };
