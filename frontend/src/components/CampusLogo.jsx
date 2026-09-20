@@ -24,10 +24,10 @@ export const CampusLogo = ({ height = 48, variant = "horizontal", className = ""
       <img
         src={lightSrc}
         alt="CampusX: Buy. Sell. Connect."
-        height={height}
         className="campus-logo-img light-only"
         style={{
-          height: `${height}px`,
+          maxHeight: `${height}px`,
+          maxWidth: "100%",
           width: "auto",
           objectFit: "contain",
           imageRendering: "auto",
@@ -38,10 +38,10 @@ export const CampusLogo = ({ height = 48, variant = "horizontal", className = ""
       <img
         src={darkSrc}
         alt="CampusX: Buy. Sell. Connect."
-        height={height}
         className="campus-logo-img dark-only"
         style={{
-          height: `${height}px`,
+          maxHeight: `${height}px`,
+          maxWidth: "100%",
           width: "auto",
           objectFit: "contain",
           imageRendering: "auto",
