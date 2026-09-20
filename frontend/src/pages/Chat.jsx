@@ -555,6 +555,7 @@ const Chat = () => {
           {/* Active Chat Window */}
           <div className={`chat-main-wrapper ${!conversationId ? "mobile-hidden" : ""}`}>
             <ChatWindow
+              key={conversationId || (activeConversation?._id || activeConversation?.id) || "empty"}
               conversation={activeConversation || conversations.find((c) => (c._id || c.id)?.toString() === conversationId)}
               messages={messages}
               onSendMessage={handleSendMessage}
@@ -569,6 +570,7 @@ const Chat = () => {
               onUnblockUser={handleUnblockUser}
               onReportUser={() => setReportModalOpen(true)}
               e2eeStatus={peerE2eeInfo}
+              otherUser={otherUser}
               onOpenKeyBackup={() => {
                 setKeyModalMode("backup");
                 setKeyBackupModalOpen(true);

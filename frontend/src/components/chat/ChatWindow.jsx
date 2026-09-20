@@ -24,43 +24,100 @@ const ChatWindow = ({
   onReportUser,
   e2eeStatus = { isEncrypted: true, peerHasKey: true, keyChanged: false },
   onOpenKeyBackup,
+  otherUser: propOtherUser,
 }) => {
   const { user } = useAuth();
   const { isOnline } = useSocket();
   const [lightboxImage, setLightboxImage] = useState(null);
-  const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
-  const prevMessagesLength = useRef(messages.length);
+  const prevMessagesLength = useRef(0);
+  const prevConversationId = useRef(conversation?._id);
+  const isInitialScrollDone = useRef(false);
+  const prevScrollHeightRef = useRef(0);
 
-  const currentUserId = (user?._id || user?.id || "").toString();
-  const rawParticipant = conversation?.participants?.find((p) => {
-    const pId = (p?._id || p?.id || p || "").toString();
-    return pId && pId !== currentUserId;
-  });
+  const otherUser = propOtherUser || conversation?.participants?.find(
+    (p) => (p._id || p.id || p)?.toString() !== (user?._id || user?.id)?.toString() && typeof p === "object" && p !== null
+  ) || null;
+  const otherIsOnline = otherUser ? isOnline(otherUser._id || otherUser.id) : false;
 
-  const otherUser =
-    typeof rawParticipant === "object" && rawParticipant !== null
-      ? { ...rawParticipant, _id: (rawParticipant._id || rawParticipant.id || "").toString() }
-      : rawParticipant
-      ? { _id: rawParticipant.toString(), name: "Student" }
-      : conversation?.product?.seller
-      ? {
-          _id: (conversation.product.owner?._id || conversation.product.owner || "").toString(),
-          name: conversation.product.seller?.name || "Student",
-        }
-      : null;
+  const scrollToBottom = (behavior = "auto") => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior,
+    });
+  };
 
-  const otherIsOnline = isOnline(otherUser?._id);
-
-  // Auto-scroll to bottom on new messages if near bottom
+  // Reset tracking when active conversation ID changes
   useEffect(() => {
-    if (messages.length > prevMessagesLength.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    } else if (prevMessagesLength.current === 0 && messages.length > 0) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+    if (conversation?._id !== prevConversationId.current) {
+      prevConversationId.current = conversation?._id;
+      prevMessagesLength.current = 0;
+      isInitialScrollDone.current = false;
+      prevScrollHeightRef.current = 0;
+      requestAnimationFrame(() => scrollToBottom("auto"));
     }
+  }, [conversation?._id]);
+
+  // Robust container-only scroll to bottom when messages load or arrive
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+
+    if (loadingMore) {
+      // Preserve scroll position when older messages are prepended
+      if (prevScrollHeightRef.current > 0) {
+        const addedHeight = el.scrollHeight - prevScrollHeightRef.current;
+        if (addedHeight > 0) {
+          el.scrollTop += addedHeight;
+        }
+        prevScrollHeightRef.current = 0;
+      }
+      prevMessagesLength.current = messages.length;
+      return;
+    }
+
+    if (!isInitialScrollDone.current && messages.length > 0) {
+      // First load of messages for this conversation: jump to bottom instantly
+      isInitialScrollDone.current = true;
+      requestAnimationFrame(() => scrollToBottom("auto"));
+      const t1 = setTimeout(() => scrollToBottom("auto"), 50);
+      const t2 = setTimeout(() => scrollToBottom("auto"), 150);
+      const t3 = setTimeout(() => scrollToBottom("auto"), 300);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
+    } else if (messages.length > prevMessagesLength.current) {
+      // New message appended: smooth scroll to bottom if user is already near bottom
+      const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 250;
+      if (isNearBottom) {
+        requestAnimationFrame(() => scrollToBottom("smooth"));
+      }
+    }
+
     prevMessagesLength.current = messages.length;
-  }, [messages.length]);
+  }, [messages.length, loadingMore]);
+
+  // Ensure scroll stays pinned to bottom when security warning banner or typing indicator appears
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 250;
+    if (isNearBottom) {
+      requestAnimationFrame(() => scrollToBottom("auto"));
+    }
+  }, [e2eeStatus?.keyChanged, isOtherTyping]);
+
+  const handleOlderLoadClick = () => {
+    const el = messagesContainerRef.current;
+    if (el) {
+      prevScrollHeightRef.current = el.scrollHeight;
+    }
+    if (onLoadMore) onLoadMore();
+  };
 
   if (!conversation) {
     return (
@@ -281,7 +338,7 @@ const ChatWindow = ({
         {hasMore && (
           <button
             className="messages-load-more"
-            onClick={onLoadMore}
+            onClick={handleOlderLoadClick}
             disabled={loadingMore}
           >
             {loadingMore ? "Loading older messages..." : "↑ Load older messages"}
@@ -298,8 +355,6 @@ const ChatWindow = ({
         ))}
 
         {isOtherTyping && <TypingIndicator userName={otherUser?.name || "User"} />}
-
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Message Input or Blocked Notice */}

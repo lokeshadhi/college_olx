@@ -12,6 +12,7 @@ const MessageBubble = ({ message, currentUserId, onImageClick }) => {
   const isSent = senderId === currentUserId?.toString();
   const isEncrypted = Number(message.encryptionVersion) >= 1;
   const hasDecryptionError = Boolean(message.decryptionError);
+  const isDecryptionFailed = hasDecryptionError || (typeof message.content === "string" && message.content.includes("Decryption failed"));
 
   return (
     <div className={`message-row ${isSent ? "sent" : "received"}`}>
@@ -42,19 +43,10 @@ const MessageBubble = ({ message, currentUserId, onImageClick }) => {
           </div>
         )}
 
-        {hasDecryptionError ? (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              color: "#FCA5A5",
-              fontSize: "0.85rem",
-              fontStyle: "italic",
-            }}
-          >
-            <FiAlertCircle size={14} />
-            <span>{message.content || "Decryption failed: Key mismatch or tampered payload"}</span>
+        {isDecryptionFailed ? (
+          <div className="message-decryption-notice">
+            <FiAlertCircle className="decryption-notice-icon" />
+            <span>{typeof message.content === "string" ? message.content.replace(/^🔒\s*/, "") : "Decryption failed: Key mismatch or tampered payload"}</span>
           </div>
         ) : (
           message.content && <div className="message-text">{message.content}</div>
