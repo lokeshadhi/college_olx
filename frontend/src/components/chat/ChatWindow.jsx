@@ -205,7 +205,7 @@ const ChatWindow = ({
         </div>
 
         {/* Product Context Banner & Moderation Actions */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+        <div className="chat-header-right">
           {product && (
             <Link
               to={`/products/${product._id}`}
@@ -225,22 +225,11 @@ const ChatWindow = ({
           )}
 
           {/* Keys & Moderation Action Buttons */}
-          <div className="chat-header-actions" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+          <div className="chat-header-actions">
             <button
               type="button"
+              className="chat-action-btn"
               onClick={onOpenKeyBackup}
-              style={{
-                background: "transparent",
-                border: "1px solid var(--color-border, #2B3253)",
-                borderRadius: "6px",
-                padding: "5px 8px",
-                fontSize: "0.78rem",
-                color: "var(--color-text-muted, #9CA3B8)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-              }}
               title="Manage End-to-End Encryption Keys & Backup"
             >
               <FiShield /> <span className="btn-label">Keys</span>
@@ -249,20 +238,8 @@ const ChatWindow = ({
             {blockStatus?.blockedByMe ? (
               <button
                 type="button"
+                className="chat-action-btn chat-action-unblock"
                 onClick={onUnblockUser}
-                style={{
-                  background: "var(--color-paper-raised, #1B2138)",
-                  border: "1px solid var(--color-border, #2B3253)",
-                  borderRadius: "6px",
-                  padding: "5px 10px",
-                  fontSize: "0.78rem",
-                  fontWeight: 600,
-                  color: "var(--color-text, #EDEAE0)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
                 title="Unblock this student"
               >
                 <FiSlash /> <span className="btn-label">Unblock</span>
@@ -270,19 +247,8 @@ const ChatWindow = ({
             ) : (
               <button
                 type="button"
+                className="chat-action-btn"
                 onClick={onBlockUser}
-                style={{
-                  background: "transparent",
-                  border: "1px solid var(--color-border, #2B3253)",
-                  borderRadius: "6px",
-                  padding: "5px 8px",
-                  fontSize: "0.78rem",
-                  color: "var(--color-text-muted, #9CA3B8)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
                 title="Block this student from chat"
               >
                 <FiSlash /> <span className="btn-label">Block</span>
@@ -291,19 +257,8 @@ const ChatWindow = ({
 
             <button
               type="button"
+              className="chat-action-btn chat-action-report"
               onClick={onReportUser}
-              style={{
-                background: "transparent",
-                border: "1px solid var(--color-border, #2B3253)",
-                borderRadius: "6px",
-                padding: "5px 8px",
-                fontSize: "0.78rem",
-                color: "var(--color-coral, #D9634B)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-              }}
               title="Report this student"
             >
               <FiAlertTriangle /> <span className="btn-label">Report</span>

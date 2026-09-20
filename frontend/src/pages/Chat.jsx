@@ -540,7 +540,7 @@ const Chat = () => {
   }
 
   return (
-    <MainLayout>
+    <MainLayout hideFooter={true}>
       <div className="chat-page-container">
         <div className="chat-card">
           {/* Conversation List (Sidebar) */}

@@ -1,11 +1,11 @@
 import Navbar from "../components/Navbar.jsx";
 import Footer from "../components/Footer.jsx";
 
-const MainLayout = ({ children }) => (
+const MainLayout = ({ children, hideFooter = false }) => (
   <>
     <Navbar />
     <main>{children}</main>
-    <Footer />
+    {!hideFooter && <Footer />}
   </>
 );
 
