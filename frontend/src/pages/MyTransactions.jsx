@@ -180,15 +180,7 @@ const MyTransactions = () => {
         <PendingReviewsBanner onReviewSubmitted={loadData} />
 
         {/* Tabs */}
-        <div
-          style={{
-            display: "flex",
-            gap: "8px",
-            marginBottom: "24px",
-            borderBottom: "1px solid var(--color-border)",
-            paddingBottom: "12px",
-          }}
-        >
+        <div className="transactions-tab-bar">
           <button
             type="button"
             onClick={() => handleTabChange("all")}
@@ -241,7 +233,7 @@ const MyTransactions = () => {
             }
           />
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div className="transactions-list">
             {displayedList.map((t) => {
               const isBuyer = getUserId(t.buyer) === currentUserIdStr;
               const counterpart = isBuyer ? t.seller : t.buyer;
@@ -258,49 +250,15 @@ const MyTransactions = () => {
               return (
                 <div
                   key={t._id?.toString() || Math.random()}
-                  style={{
-                    background: "var(--color-paper-raised, #FFFFFF)",
-                    border: "1px solid var(--color-border, #E4DFD2)",
-                    borderRadius: "var(--radius-md, 14px)",
-                    padding: "20px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "18px",
-                    flexWrap: "wrap",
-                    boxShadow: "var(--shadow-sm, 0 2px 8px rgba(22, 33, 62, 0.04))",
-                  }}
+                  className="transaction-card"
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "16px",
-                      flex: 1,
-                      minWidth: "260px",
-                    }}
-                  >
+                  <div className="transaction-main">
                     {/* Product Image */}
-                    <div
-                      style={{
-                        width: "68px",
-                        height: "68px",
-                        borderRadius: "10px",
-                        overflow: "hidden",
-                        background: "var(--color-paper, #F8F6F0)",
-                        flexShrink: 0,
-                        border: "1px solid var(--color-border, #E4DFD2)",
-                      }}
-                    >
+                    <div className="transaction-thumb">
                       {t.product?.images?.[0] ? (
                         <img
                           src={resolveImageUrl(t.product.images[0])}
                           alt={t.product?.title || "Product"}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
                         />
                       ) : (
                         <div
@@ -310,7 +268,7 @@ const MyTransactions = () => {
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            color: "var(--color-text-muted, #5B6478)",
+                            color: "var(--color-text-muted)",
                           }}
                         >
                           <FiPackage size={24} />
@@ -319,72 +277,31 @@ const MyTransactions = () => {
                     </div>
 
                     {/* Deal Details */}
-                    <div>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          marginBottom: "4px",
-                        }}
-                      >
+                    <div className="transaction-info">
+                      <div className="transaction-badges">
                         <span
-                          style={{
-                            fontSize: "0.72rem",
-                            fontWeight: 700,
-                            textTransform: "uppercase",
-                            padding: "2px 8px",
-                            borderRadius: "4px",
-                            background: isBuyer
-                              ? "rgba(79, 117, 102, 0.12)"
-                              : "rgba(225, 167, 59, 0.12)",
-                            color: isBuyer
-                              ? "var(--color-sage, #4F7566)"
-                              : "var(--color-gold-dark, #B8842A)",
-                          }}
+                          className={`transaction-badge ${
+                            isBuyer ? "transaction-badge-purchase" : "transaction-badge-sale"
+                          }`}
                         >
                           {isBuyer ? "Purchase" : "Sale"}
                         </span>
                         <span
-                          style={{
-                            fontSize: "0.72rem",
-                            fontWeight: 700,
-                            textTransform: "uppercase",
-                            padding: "2px 8px",
-                            borderRadius: "4px",
-                            background:
-                              t.status === "COMPLETED"
-                                ? "rgba(79, 117, 102, 0.15)"
-                                : t.status === "PENDING"
-                                ? "rgba(225, 167, 59, 0.15)"
-                                : "rgba(163, 59, 59, 0.12)",
-                            color:
-                              t.status === "COMPLETED"
-                                ? "var(--color-sage, #4F7566)"
-                                : t.status === "PENDING"
-                                ? "var(--color-gold-dark, #B8842A)"
-                                : "var(--color-crimson, #A33B3B)",
-                          }}
+                          className={`transaction-badge ${
+                            t.status === "COMPLETED"
+                              ? "transaction-badge-completed"
+                              : t.status === "PENDING"
+                              ? "transaction-badge-pending"
+                              : "transaction-badge-cancelled"
+                          }`}
                         >
                           {t.status === "PENDING" ? "PENDING APPROVAL" : t.status}
                         </span>
                       </div>
 
-                      <h3
-                        style={{
-                          margin: "0 0 4px",
-                          fontSize: "1.05rem",
-                          color: "var(--color-ink, #16213E)",
-                        }}
-                      >
+                      <h3 className="transaction-title">
                         {t.product?._id ? (
-                          <Link
-                            to={`/products/${t.product._id}`}
-                            style={{
-                              color: "inherit",
-                              textDecoration: "none",
-                            }}
-                          >
+                          <Link to={`/products/${t.product._id}`}>
                             {t.product.title}
                           </Link>
                         ) : (
@@ -392,26 +309,15 @@ const MyTransactions = () => {
                         )}
                       </h3>
 
-                      <div
-                        style={{
-                          fontSize: "0.82rem",
-                          color: "var(--color-text-muted, #5B6478)",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "10px",
-                          flexWrap: "wrap",
-                        }}
-                      >
+                      <div className="transaction-meta">
                         <span>
                           {isBuyer ? "Seller: " : "Buyer: "}
-                          <strong style={{ color: "var(--color-ink, #16213E)" }}>
-                            {counterpart?.name || "Student"}
-                          </strong>
+                          <strong>{counterpart?.name || "Student"}</strong>
                           {counterpart?.isEmailVerified && (
                             <FiCheckCircle
                               size={12}
                               style={{
-                                color: "var(--color-primary, #1B4D3E)",
+                                color: "var(--color-primary)",
                                 marginLeft: "4px",
                                 verticalAlign: "middle",
                               }}
@@ -431,26 +337,12 @@ const MyTransactions = () => {
                   </div>
 
                   {/* Price and Actions */}
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "16px",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <div style={{ textAlign: "right" }}>
-                      <div
-                        style={{
-                          fontFamily: "var(--font-mono, monospace)",
-                          fontSize: "1.2rem",
-                          fontWeight: 700,
-                          color: "var(--color-ink, #16213E)",
-                        }}
-                      >
+                  <div className="transaction-actions-col">
+                    <div className="transaction-price-block">
+                      <div className="transaction-price">
                         ₹{Number(t.amount || t.product?.price || 0).toLocaleString("en-IN")}
                       </div>
-                      <div style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #5B6478)" }}>
+                      <div className="transaction-price-label">
                         {t.status === "PENDING"
                           ? isBuyer
                             ? "Your Bid Offer"
@@ -469,7 +361,7 @@ const MyTransactions = () => {
                               onClick={() => handleApprove(t._id)}
                               loading={actionLoading === t._id}
                               style={{
-                                background: "var(--color-primary, #1B4D3E)",
+                                background: "var(--color-brand-accent)",
                                 padding: "6px 14px",
                                 fontSize: "0.82rem",
                                 display: "inline-flex",
@@ -486,8 +378,8 @@ const MyTransactions = () => {
                               onClick={() => handleDecline(t._id)}
                               disabled={actionLoading === t._id}
                               style={{
-                                color: "var(--color-crimson, #A33B3B)",
-                                borderColor: "rgba(163, 59, 59, 0.4)",
+                                color: "var(--color-danger)",
+                                borderColor: "var(--color-danger)",
                                 padding: "6px 12px",
                                 fontSize: "0.82rem",
                               }}
@@ -496,12 +388,12 @@ const MyTransactions = () => {
                             </Button>
                           </div>
                         ) : (
-                          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
                             <span
                               style={{
                                 fontSize: "0.82rem",
-                                color: "var(--color-gold-dark, #B8842A)",
-                                background: "rgba(225, 167, 59, 0.12)",
+                                color: "var(--color-apple-orange)",
+                                background: "var(--color-warning-bg)",
                                 padding: "4px 10px",
                                 borderRadius: "999px",
                                 fontWeight: 600,
@@ -517,8 +409,8 @@ const MyTransactions = () => {
                               onClick={() => handleCancel(t._id)}
                               disabled={actionLoading === t._id}
                               style={{
-                                color: "var(--color-text-muted, #5B6478)",
-                                borderColor: "var(--color-border, #E4DFD2)",
+                                color: "var(--color-text-muted)",
+                                borderColor: "var(--color-border)",
                                 padding: "4px 10px",
                                 fontSize: "0.78rem",
                               }}
@@ -543,7 +435,7 @@ const MyTransactions = () => {
                               gap: "6px",
                               padding: "8px 14px",
                               fontSize: "0.85rem",
-                              background: "var(--color-gold, #E1A73B)",
+                              background: "var(--color-brand-accent)",
                               border: "none",
                             }}
                           >
@@ -551,19 +443,7 @@ const MyTransactions = () => {
                             <span>{isBuyer ? "Rate Seller" : "Rate Buyer"}</span>
                           </Button>
                         ) : (
-                          <div
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "4px",
-                              padding: "6px 12px",
-                              borderRadius: "999px",
-                              background: "rgba(79, 117, 102, 0.12)",
-                              color: "var(--color-sage, #4F7566)",
-                              fontSize: "0.82rem",
-                              fontWeight: 600,
-                            }}
-                          >
+                          <div className="transaction-status-pill success">
                             <FiCheckCircle size={14} />
                             <span>Review Submitted</span>
                           </div>

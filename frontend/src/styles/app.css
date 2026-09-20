@@ -516,6 +516,256 @@
 }
 
 /* --------------------------------------------------------------------------
+   My Purchases & Transactions Responsive System
+   -------------------------------------------------------------------------- */
+.transactions-tab-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 12px;
+  overflow-x: auto;
+  max-width: 100%;
+  width: 100%;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  flex-wrap: nowrap;
+}
+
+.transactions-tab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.transactions-tab-bar .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.transactions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.transaction-card {
+  background: var(--color-paper-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.transaction-card:hover {
+  border-color: var(--color-border-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.transaction-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.transaction-thumb {
+  width: 70px;
+  height: 70px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-paper-subtle);
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+}
+
+.transaction-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.transaction-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.transaction-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.transaction-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  letter-spacing: 0.03em;
+}
+
+.transaction-badge-purchase {
+  background: rgba(52, 199, 89, 0.12);
+  color: var(--color-success);
+}
+
+.transaction-badge-sale {
+  background: rgba(0, 113, 227, 0.12);
+  color: var(--color-brand-accent);
+}
+
+.transaction-badge-completed {
+  background: rgba(52, 199, 89, 0.14);
+  color: var(--color-success);
+}
+
+.transaction-badge-pending {
+  background: rgba(245, 99, 0, 0.14);
+  color: var(--color-apple-orange);
+}
+
+.transaction-badge-cancelled {
+  background: rgba(255, 59, 48, 0.12);
+  color: var(--color-danger);
+}
+
+.transaction-title {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transaction-title a {
+  color: inherit;
+  text-decoration: none;
+}
+.transaction-title a:hover {
+  color: var(--color-brand-accent);
+}
+
+.transaction-meta {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  line-height: 1.4;
+}
+
+.transaction-meta strong {
+  color: var(--color-ink);
+}
+
+.transaction-actions-col {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.transaction-price-block {
+  text-align: right;
+}
+
+.transaction-price {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  line-height: 1.2;
+}
+
+.transaction-price-label {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.transaction-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.transaction-status-pill.success {
+  background: rgba(52, 199, 89, 0.12);
+  color: var(--color-success);
+}
+
+.transaction-status-pill.warning {
+  background: rgba(245, 99, 0, 0.12);
+  color: var(--color-apple-orange);
+}
+
+@media (max-width: 680px) {
+  .transaction-card {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .transaction-main {
+    width: 100%;
+  }
+
+  .transaction-thumb {
+    width: 60px;
+    height: 60px;
+  }
+
+  .transaction-title {
+    font-size: 0.98rem;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .transaction-actions-col {
+    width: 100%;
+    justify-content: space-between;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border);
+    gap: 10px;
+  }
+
+  .transaction-price-block {
+    text-align: left;
+  }
+
+  .transaction-price {
+    font-size: 1.15rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
    Student Profile Hub
    -------------------------------------------------------------------------- */
 .profile-layout {

@@ -209,6 +209,12 @@ img {
   }
 }
 
+@media (max-width: 640px) {
+  .container {
+    padding: 0 16px;
+  }
+}
+
 .mono-tag {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;

@@ -69,9 +69,12 @@ const PendingReviewsBanner = ({ onReviewSubmitted }) => {
           justifyContent: "space-between",
           gap: "16px",
           flexWrap: "wrap",
+          width: "100%",
+          maxWidth: "100%",
+          boxSizing: "border-box",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "14px", flex: 1, minWidth: "260px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "14px", flex: 1, minWidth: 0 }}>
           <div
             style={{
               width: "44px",
