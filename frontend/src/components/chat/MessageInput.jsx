@@ -150,13 +150,19 @@ const MessageInput = ({
           <textarea
             ref={textareaRef}
             className="chat-textarea"
-            placeholder={disabled ? "Connecting to chat..." : "Type a message... (Press Enter to send)"}
+            placeholder={disabled ? "Connecting to chat..." : "Type a message..."}
             value={content}
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
+            onFocus={() => {
+              setTimeout(() => {
+                textareaRef.current?.scrollIntoView({ block: "nearest" });
+              }, 200);
+            }}
             rows={1}
             disabled={disabled || sending}
             maxLength={2000}
+            enterKeyHint="send"
           />
         </div>
 

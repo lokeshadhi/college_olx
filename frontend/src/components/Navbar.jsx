@@ -194,7 +194,7 @@ const Navbar = () => {
           <div className="mobile-overlay" onClick={closeAll} />
           <aside className="mobile-drawer">
             <div className="mobile-drawer-header">
-              <CampusLogo height={46} />
+              <CampusLogo height={40} />
               <button
                 onClick={closeAll}
                 style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-ink)" }}
@@ -203,6 +203,22 @@ const Navbar = () => {
                 <FiX size={22} />
               </button>
             </div>
+
+            {isAuthenticated && user && (
+              <div className="mobile-drawer-user">
+                <span className="avatar-circle">
+                  {user.profileImage ? (
+                    <img src={user.profileImage} alt={user.name} />
+                  ) : (
+                    user.name?.charAt(0)?.toUpperCase()
+                  )}
+                </span>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div className="mobile-drawer-name">{user.name}</div>
+                  <div className="mobile-drawer-email">{user.email}</div>
+                </div>
+              </div>
+            )}
 
             <nav className="mobile-nav-links">
               <NavLink to="/" onClick={closeAll} end>

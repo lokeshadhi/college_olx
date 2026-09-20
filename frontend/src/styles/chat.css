@@ -763,13 +763,18 @@
     display: none !important;
   }
 
+  body:has(.chat-page-container) .apple-announcement-ribbon {
+    display: none !important;
+  }
+
   .chat-page-container {
     padding: 0 !important;
     margin: 0 !important;
     max-width: 100% !important;
     width: 100% !important;
-    height: calc(100vh - 64px) !important;
-    height: calc(100dvh - 64px) !important;
+    height: calc(100vh - 56px) !important;
+    height: calc(100dvh - 56px) !important;
+    height: calc(var(--chat-viewport-height, 100dvh) - 56px) !important;
     display: flex;
     flex-direction: column;
     overflow: hidden;

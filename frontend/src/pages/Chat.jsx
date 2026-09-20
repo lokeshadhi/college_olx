@@ -95,6 +95,35 @@ const Chat = () => {
     return null;
   }, [activeConversation, conversations, conversationId, currentUserId]);
 
+  // Mobile virtual keyboard & viewport height dynamic tracking
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const updateViewport = () => {
+      const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      document.documentElement.style.setProperty("--chat-viewport-height", `${height}px`);
+    };
+
+    updateViewport();
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", updateViewport);
+      window.visualViewport.addEventListener("scroll", updateViewport);
+    } else {
+      window.addEventListener("resize", updateViewport);
+    }
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", updateViewport);
+        window.visualViewport.removeEventListener("scroll", updateViewport);
+      } else {
+        window.removeEventListener("resize", updateViewport);
+      }
+      document.documentElement.style.removeProperty("--chat-viewport-height");
+    };
+  }, []);
+
   // Initialize E2EE cryptographic identity for logged-in user
   useEffect(() => {
     if (!user?._id) return;
