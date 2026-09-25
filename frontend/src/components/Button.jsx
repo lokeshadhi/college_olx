@@ -6,6 +6,7 @@ const Button = ({
   size = "md", // md | sm
   block = false,
   loading = false,
+  loadingText,
   disabled = false,
   type = "button",
   onClick,
@@ -24,7 +25,7 @@ const Button = ({
 
   return (
     <button type={type} className={classes} onClick={onClick} disabled={disabled || loading} {...rest}>
-      {loading ? "Please wait..." : children}
+      {loading ? (loadingText || "Please wait...") : children}
     </button>
   );
 };

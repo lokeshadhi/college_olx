@@ -364,60 +364,202 @@ class E2EEService {
   }
 
   /**
-   * Backs up the user's private key with a passphrase to the server
-   * @param {string} passphrase
+   * Backs up the user's private key using their login password (or passphrase)
+   * @param {string} password
    * @returns {Promise<boolean>}
    */
-  async backupPrivateKeyWithPassphrase(passphrase) {
+  async backupWithPassword(password) {
     if (!this.localCryptoKey?.privateKey) {
       throw new Error("No private key loaded to backup");
     }
 
-    const backupPayload = await createPassphraseBackup(this.localCryptoKey.privateKey, passphrase);
+    const backupPayload = await createPassphraseBackup(this.localCryptoKey.privateKey, password);
     const res = await api.post("/chat/keys/backup", backupPayload);
     return res.data?.success;
   }
 
   /**
-   * Restores user's private key from server backup using passphrase
+   * Restores user's private key from server backup using login password
+   * @param {string} userId
+   * @param {string} password
+   * @returns {Promise<{ success: boolean, fingerprint?: string, reason?: string, error?: string }>}
+   */
+  async restoreWithPassword(userId, password) {
+    try {
+      const res = await api.get("/chat/keys/backup");
+      if (!res.data?.success || !res.data?.data || !res.data?.data?.ciphertext) {
+        return { success: false, reason: "NO_BACKUP" };
+      }
+
+      const backupData = res.data.data;
+      const privateKey = await restorePassphraseBackup(backupData, password);
+
+      // Fetch public key from backend to store complete keypair in IndexedDB
+      const pubRes = await api.get(`/chat/keys/public-key/${userId}`);
+      const publicKeySpki = pubRes.data?.data?.publicKey;
+      const fingerprint = pubRes.data?.data?.fingerprint;
+
+      if (!publicKeySpki) {
+        return { success: false, reason: "PUBLIC_KEY_MISSING" };
+      }
+
+      const publicKey = await importPublicKey(publicKeySpki);
+      const privateKeyPkcs8 = await exportPrivateKey(privateKey);
+
+      await saveLocalKeyPair(userId, {
+        publicKeySpki,
+        privateKeyPkcs8,
+        fingerprint,
+      });
+
+      this.localCryptoKey = {
+        privateKey,
+        publicKey,
+        publicKeySpki,
+        fingerprint,
+      };
+
+      return { success: true, fingerprint };
+    } catch (err) {
+      return { success: false, reason: "DECRYPTION_FAILED", error: err.message };
+    }
+  }
+
+  /**
+   * Automatically initializes or recovers user's E2EE identity during login
+   * using the provided account login password.
+   * 
+   * @param {object} user - User profile object ({ _id, name, email })
+   * @param {string} password - Account login password (ephemeral, not persisted)
+   * @returns {Promise<{ status: string, fingerprint?: string, hasBackup?: boolean, serverFingerprint?: string, restored?: boolean }>}
+   */
+  async ensureUserKeysWithPassword(user, password) {
+    if (!user || !user._id) {
+      throw new Error("Valid user object required for E2EE setup");
+    }
+
+    const userId = user._id.toString();
+    this.currentUserId = userId;
+
+    // 1. Check if user already has keys stored locally in IndexedDB
+    const local = await getLocalKeyPair(userId);
+    if (local && local.privateKeyPkcs8 && local.publicKeySpki) {
+      try {
+        const privateKey = await importPrivateKey(local.privateKeyPkcs8);
+        const publicKey = await importPublicKey(local.publicKeySpki);
+        const fingerprint = local.fingerprint || (await computeKeyFingerprint(local.publicKeySpki));
+
+        this.localCryptoKey = {
+          privateKey,
+          publicKey,
+          publicKeySpki: local.publicKeySpki,
+          fingerprint,
+        };
+
+        // Ensure backend has current public key registered
+        await this.syncPublicKeyWithBackend(local.publicKeySpki, fingerprint);
+
+        // Ensure backup exists on server. If missing, silently create one with password
+        try {
+          const backupCheck = await api.get("/chat/keys/backup");
+          if (!backupCheck.data?.success || !backupCheck.data?.data?.ciphertext) {
+            if (password) {
+              await this.backupWithPassword(password);
+            }
+          }
+        } catch {
+          if (password) {
+            try {
+              await this.backupWithPassword(password);
+            } catch (e) {
+              console.warn("Silent key backup creation skipped:", e.message);
+            }
+          }
+        }
+
+        return { status: "ready", fingerprint };
+      } catch (err) {
+        console.error("Failed to load local keys from IndexedDB:", err);
+      }
+    }
+
+    // 2. No local keys found in IndexedDB. Check if server already has a registered identity
+    let serverIdentity = null;
+    try {
+      const pubRes = await api.get(`/chat/keys/public-key/${userId}`);
+      if (pubRes.data?.success && pubRes.data?.data?.publicKey) {
+        serverIdentity = pubRes.data.data;
+      }
+    } catch {
+      // 404 means no public key registered
+    }
+
+    if (serverIdentity) {
+      // Identity exists on server! Attempt automatic restore with login password
+      if (password) {
+        const restoreRes = await this.restoreWithPassword(userId, password);
+        if (restoreRes.success) {
+          return {
+            status: "ready",
+            fingerprint: restoreRes.fingerprint,
+            restored: true,
+          };
+        }
+      }
+
+      // If automatic restore could not decrypt (e.g. legacy passphrase used), flag for legacy fallback
+      return {
+        status: "needs_legacy_restore",
+        hasBackup: true,
+        serverFingerprint: serverIdentity.fingerprint,
+      };
+    }
+
+    // 3. Brand new account: generate RSA key pair, register public key, and back up private key
+    const newKeyResult = await this.generateAndRegisterNewKeys(userId);
+    if (password) {
+      try {
+        await this.backupWithPassword(password);
+      } catch (e) {
+        console.warn("Automatic key backup with password failed:", e.message);
+      }
+    }
+
+    return {
+      ...newKeyResult,
+      needsBackup: false,
+    };
+  }
+
+  /**
+   * Re-encrypts the user's private key with their current login password
+   * @param {string} newPassword
+   * @returns {Promise<boolean>}
+   */
+  async reencryptBackupWithPassword(newPassword) {
+    return await this.backupWithPassword(newPassword);
+  }
+
+  /**
+   * Backs up the user's private key with a passphrase to the server (legacy method)
+   * @param {string} passphrase
+   * @returns {Promise<boolean>}
+   */
+  async backupPrivateKeyWithPassphrase(passphrase) {
+    return await this.backupWithPassword(passphrase);
+  }
+
+  /**
+   * Restores user's private key from server backup using passphrase (legacy method)
    * @param {string} userId
    * @param {string} passphrase
    * @returns {Promise<boolean>}
    */
   async restorePrivateKeyWithPassphrase(userId, passphrase) {
-    const res = await api.get("/chat/keys/backup");
-    if (!res.data?.success || !res.data?.data) {
-      throw new Error("No key backup found on server");
+    const res = await this.restoreWithPassword(userId, passphrase);
+    if (!res.success) {
+      throw new Error(res.error || "Incorrect passphrase or corrupt backup data");
     }
-
-    const backupData = res.data.data;
-    const privateKey = await restorePassphraseBackup(backupData, passphrase);
-
-    // Also fetch public key to store full pair in IndexedDB
-    const pubRes = await api.get(`/chat/keys/public-key/${userId}`);
-    const publicKeySpki = pubRes.data?.data?.publicKey;
-    const fingerprint = pubRes.data?.data?.fingerprint;
-
-    if (!publicKeySpki) {
-      throw new Error("Public key registry mismatch on server");
-    }
-
-    const publicKey = await importPublicKey(publicKeySpki);
-    const privateKeyPkcs8 = await exportPrivateKey(privateKey);
-
-    await saveLocalKeyPair(userId, {
-      publicKeySpki,
-      privateKeyPkcs8,
-      fingerprint,
-    });
-
-    this.localCryptoKey = {
-      privateKey,
-      publicKey,
-      publicKeySpki,
-      fingerprint,
-    };
-
     return true;
   }
 

@@ -310,8 +310,8 @@ export const deriveKekFromPassphrase = async (passphrase, salt, iterations = 150
  * @returns {Promise<{ ciphertext: string, iv: string, salt: string, iterations: number }>}
  */
 export const createPassphraseBackup = async (privateKey, passphrase) => {
-  if (!passphrase || passphrase.length < 8) {
-    throw new Error("Passphrase must be at least 8 characters long");
+  if (!passphrase || typeof passphrase !== "string" || passphrase.trim().length === 0) {
+    throw new Error("Password must not be empty");
   }
 
   // 1. Generate random 16-byte salt and 12-byte IV

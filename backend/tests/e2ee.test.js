@@ -699,4 +699,314 @@ describe("CampusX Phase 2: End-to-End Encryption (E2EE) & Public Key Registry Te
       );
     });
   });
+
+  // ==========================================================
+  // 5. PRIVATE KEY RECOVERY UX: LOGIN-PASSWORD-DERIVED KEK
+  // ==========================================================
+  describe("5. Private Key Recovery UX: Login-Password-Derived KEK", () => {
+    const loginPassword = "StudentSecurePassword@2026!";
+    const wrongLoginPassword = "WrongPassword#9999!";
+    const subtle = globalThis.crypto.subtle;
+
+    // Helper to derive KEK from a password using PBKDF2 (matching webCryptoUtils)
+    async function deriveKek(password, salt, iterations = 150000) {
+      const encoder = new TextEncoder();
+      const pwKey = await subtle.importKey(
+        "raw",
+        encoder.encode(password),
+        { name: "PBKDF2" },
+        false,
+        ["deriveKey"]
+      );
+
+      return await subtle.deriveKey(
+        {
+          name: "PBKDF2",
+          salt,
+          iterations,
+          hash: "SHA-256",
+        },
+        pwKey,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    }
+
+    it("should encrypt RSA private key with login-password KEK and store backup on server", async () => {
+      // 1. Generate RSA keypair for Alice
+      const keyPair = await subtle.generateKey(
+        {
+          name: "RSA-OAEP",
+          modulusLength: 2048,
+          publicExponent: new Uint8Array([1, 0, 1]),
+          hash: "SHA-256",
+        },
+        true,
+        ["encrypt", "decrypt", "wrapKey", "unwrapKey"]
+      );
+
+      // 2. Derive AES-256-GCM KEK using Alice's login password
+      const salt = new Uint8Array(16);
+      globalThis.crypto.getRandomValues(salt);
+      const iv = new Uint8Array(12);
+      globalThis.crypto.getRandomValues(iv);
+
+      const kek = await deriveKek(loginPassword, salt);
+
+      // 3. Export private key as PKCS#8 and encrypt with AES-GCM
+      const pkcs8 = await subtle.exportKey("pkcs8", keyPair.privateKey);
+      const ciphertextBuffer = await subtle.encrypt(
+        { name: "AES-GCM", iv, tagLength: 128 },
+        kek,
+        pkcs8
+      );
+
+      const backupPayload = {
+        ciphertext: Buffer.from(ciphertextBuffer).toString("base64"),
+        iv: Buffer.from(iv).toString("base64"),
+        salt: Buffer.from(salt).toString("base64"),
+        iterations: 150000,
+      };
+
+      // 4. Save to backend via POST /api/chat/keys/backup
+      const res = await fetch(`${baseUrl}/api/chat/keys/backup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${aliceToken}`,
+        },
+        body: JSON.stringify(backupPayload),
+      });
+
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.success, true);
+    });
+
+    it("should retrieve encrypted backup and restore private key using login password on new device", async () => {
+      // First, set up an identity and backup for Alice
+      const keyPair = await subtle.generateKey(
+        {
+          name: "RSA-OAEP",
+          modulusLength: 2048,
+          publicExponent: new Uint8Array([1, 0, 1]),
+          hash: "SHA-256",
+        },
+        true,
+        ["encrypt", "decrypt", "wrapKey", "unwrapKey"]
+      );
+
+      const salt = new Uint8Array(16);
+      globalThis.crypto.getRandomValues(salt);
+      const iv = new Uint8Array(12);
+      globalThis.crypto.getRandomValues(iv);
+
+      const kek = await deriveKek(loginPassword, salt);
+      const pkcs8 = await subtle.exportKey("pkcs8", keyPair.privateKey);
+      const ciphertext = await subtle.encrypt({ name: "AES-GCM", iv, tagLength: 128 }, kek, pkcs8);
+
+      await fetch(`${baseUrl}/api/chat/keys/backup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${aliceToken}` },
+        body: JSON.stringify({
+          ciphertext: Buffer.from(ciphertext).toString("base64"),
+          iv: Buffer.from(iv).toString("base64"),
+          salt: Buffer.from(salt).toString("base64"),
+          iterations: 150000,
+        }),
+      });
+
+      // Simulated new device: Fetch backup from server
+      const getRes = await fetch(`${baseUrl}/api/chat/keys/backup`, {
+        headers: { Authorization: `Bearer ${aliceToken}` },
+      });
+      assert.equal(getRes.status, 200);
+      const backupData = (await getRes.json()).data;
+
+      // Restore private key using login password
+      const restoredKek = await deriveKek(
+        loginPassword,
+        Buffer.from(backupData.salt, "base64"),
+        backupData.iterations
+      );
+
+      const decryptedPkcs8 = await subtle.decrypt(
+        {
+          name: "AES-GCM",
+          iv: Buffer.from(backupData.iv, "base64"),
+          tagLength: 128,
+        },
+        restoredKek,
+        Buffer.from(backupData.ciphertext, "base64")
+      );
+
+      const restoredPrivateKey = await subtle.importKey(
+        "pkcs8",
+        decryptedPkcs8,
+        { name: "RSA-OAEP", hash: "SHA-256" },
+        true,
+        ["decrypt", "unwrapKey"]
+      );
+
+      assert.ok(restoredPrivateKey);
+
+      // Verify restored key functionality: Alice wraps session key with public key, restored private key unwraps it
+      const sessionKey = await subtle.generateKey(
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt", "decrypt"]
+      );
+
+      const wrappedKey = await subtle.wrapKey("raw", sessionKey, keyPair.publicKey, { name: "RSA-OAEP" });
+      const unwrappedKey = await subtle.unwrapKey(
+        "raw",
+        wrappedKey,
+        restoredPrivateKey,
+        { name: "RSA-OAEP" },
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt", "decrypt"]
+      );
+
+      assert.ok(unwrappedKey);
+      assert.equal(unwrappedKey.algorithm.name, "AES-GCM");
+    });
+
+    it("should fail decryption when attempting restore with incorrect login password", async () => {
+      // Create backup with correct password
+      const keyPair = await subtle.generateKey(
+        {
+          name: "RSA-OAEP",
+          modulusLength: 2048,
+          publicExponent: new Uint8Array([1, 0, 1]),
+          hash: "SHA-256",
+        },
+        true,
+        ["encrypt", "decrypt"]
+      );
+
+      const salt = new Uint8Array(16);
+      globalThis.crypto.getRandomValues(salt);
+      const iv = new Uint8Array(12);
+      globalThis.crypto.getRandomValues(iv);
+
+      const kek = await deriveKek(loginPassword, salt);
+      const pkcs8 = await subtle.exportKey("pkcs8", keyPair.privateKey);
+      const ciphertext = await subtle.encrypt({ name: "AES-GCM", iv, tagLength: 128 }, kek, pkcs8);
+
+      // Attempt to decrypt with wrong password
+      const wrongKek = await deriveKek(wrongLoginPassword, salt);
+
+      await assert.rejects(
+        async () => {
+          await subtle.decrypt(
+            { name: "AES-GCM", iv, tagLength: 128 },
+            wrongKek,
+            ciphertext
+          );
+        },
+        /OperationError/
+      );
+    });
+
+    it("should support legacy backup created with custom passphrase and allow re-encryption", async () => {
+      const legacyPassphrase = "MyOldCustomPassphrase2025!";
+      const newLoginPassword = "BrandNewLoginPassword2026!";
+
+      const keyPair = await subtle.generateKey(
+        {
+          name: "RSA-OAEP",
+          modulusLength: 2048,
+          publicExponent: new Uint8Array([1, 0, 1]),
+          hash: "SHA-256",
+        },
+        true,
+        ["encrypt", "decrypt"]
+      );
+
+      // Create legacy backup
+      const salt1 = new Uint8Array(16);
+      globalThis.crypto.getRandomValues(salt1);
+      const iv1 = new Uint8Array(12);
+      globalThis.crypto.getRandomValues(iv1);
+
+      const legacyKek = await deriveKek(legacyPassphrase, salt1);
+      const pkcs8 = await subtle.exportKey("pkcs8", keyPair.privateKey);
+      const legacyCiphertext = await subtle.encrypt(
+        { name: "AES-GCM", iv: iv1, tagLength: 128 },
+        legacyKek,
+        pkcs8
+      );
+
+      // Decrypt using legacy passphrase
+      const restoredPkcs8 = await subtle.decrypt(
+        { name: "AES-GCM", iv: iv1, tagLength: 128 },
+        legacyKek,
+        legacyCiphertext
+      );
+
+      const restoredPrivateKey = await subtle.importKey(
+        "pkcs8",
+        restoredPkcs8,
+        { name: "RSA-OAEP", hash: "SHA-256" },
+        true,
+        ["decrypt"]
+      );
+      assert.ok(restoredPrivateKey);
+
+      // Seamless migration: Re-encrypt with new login password
+      const salt2 = new Uint8Array(16);
+      globalThis.crypto.getRandomValues(salt2);
+      const iv2 = new Uint8Array(12);
+      globalThis.crypto.getRandomValues(iv2);
+
+      const newKek = await deriveKek(newLoginPassword, salt2);
+      const migratedCiphertext = await subtle.encrypt(
+        { name: "AES-GCM", iv: iv2, tagLength: 128 },
+        newKek,
+        restoredPkcs8
+      );
+
+      // Verify that future restores with new login password succeed directly
+      const decryptedWithNewPassword = await subtle.decrypt(
+        { name: "AES-GCM", iv: iv2, tagLength: 128 },
+        newKek,
+        migratedCiphertext
+      );
+      assert.equal(decryptedWithNewPassword.byteLength, pkcs8.byteLength);
+    });
+
+    it("should ensure backup payload never contains plaintext secrets", async () => {
+      const payload = {
+        ciphertext: "dGVzdF9jaXBoZXJ0ZXh0",
+        iv: "dGVzdF9pdg==",
+        salt: "dGVzdF9zYWx0",
+        iterations: 150000,
+      };
+
+      const res = await fetch(`${baseUrl}/api/chat/keys/backup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${aliceToken}` },
+        body: JSON.stringify(payload),
+      });
+
+      assert.equal(res.status, 200);
+
+      const getRes = await fetch(`${baseUrl}/api/chat/keys/backup`, {
+        headers: { Authorization: `Bearer ${aliceToken}` },
+      });
+      const data = (await getRes.json()).data;
+
+      // Payload must only contain cryptographic parameters
+      assert.ok(data.ciphertext);
+      assert.ok(data.iv);
+      assert.ok(data.salt);
+      assert.ok(data.iterations);
+      assert.equal(data.password, undefined);
+      assert.equal(data.passphrase, undefined);
+      assert.equal(data.privateKey, undefined);
+      assert.equal(data.kek, undefined);
+    });
+  });
 });

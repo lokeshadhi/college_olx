@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import MainLayout from "../layouts/MainLayout.jsx";
 import Button from "../components/Button.jsx";
 import { useAuth } from "../hooks/useAuth.js";
+import e2eeService from "../crypto/e2eeService.js";
 
 const Login = () => {
   const { login } = useAuth();
@@ -13,19 +14,40 @@ const Login = () => {
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingText, setLoadingText] = useState("");
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setLoadingText("Signing in...");
+
+    // Capture password in ephemeral closure variable solely for WebCrypto key recovery
+    const rawPassword = form.password;
+
     try {
-      await login(form);
+      const userData = await login(form);
+
+      // Immediately clear the password from react state
+      setForm((prev) => ({ ...prev, password: "" }));
+
+      // Automatically restore or initialize cryptographic keys with the login password
+      if (userData && rawPassword) {
+        setLoadingText("Setting up secure messaging...");
+        try {
+          await e2eeService.ensureUserKeysWithPassword(userData, rawPassword);
+        } catch (keyErr) {
+          console.warn("E2EE key recovery warning:", keyErr?.message || keyErr);
+        }
+      }
+
       navigate(location.state?.from || "/browse");
     } catch (error) {
       toast.error(error.message);
     } finally {
       setLoading(false);
+      setLoadingText("");
     }
   };
 
@@ -99,7 +121,7 @@ const Login = () => {
               </div>
             </div>
 
-            <Button type="submit" variant="primary" block loading={loading}>
+            <Button type="submit" variant="primary" block loading={loading} loadingText={loadingText}>
               Log In
             </Button>
           </form>
