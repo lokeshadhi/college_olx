@@ -12,6 +12,9 @@ import {
   FiShoppingBag,
   FiClock,
   FiX,
+  FiMail,
+  FiAward,
+  FiCalendar,
 } from "react-icons/fi";
 import toast from "react-hot-toast";
 import MainLayout from "../layouts/MainLayout.jsx";
@@ -308,26 +311,65 @@ const ProductDetails = () => {
                 <span>
                   <FiUser /> Name
                 </span>
-                <span>{product.seller?.name}</span>
+                <span>{product.seller?.name || product.owner?.name}</span>
               </div>
               <div className="seller-row">
                 <span>
                   <FiDept /> Department
                 </span>
-                <span>{product.seller?.department}</span>
+                <span>{product.seller?.department || product.owner?.department}</span>
               </div>
-              <div className="seller-row">
-                <span>
-                  <FiPhone /> Phone
-                </span>
-                <span>{product.seller?.phone}</span>
-              </div>
+              {product.owner?.degree && (
+                <div className="seller-row">
+                  <span>
+                    <FiAward /> Degree
+                  </span>
+                  <span>{product.owner.degree}</span>
+                </div>
+              )}
+              {product.owner?.year && (
+                <div className="seller-row">
+                  <span>
+                    <FiCalendar /> Year of Study
+                  </span>
+                  <span>{product.owner.year}</span>
+                </div>
+              )}
+              {(product.seller?.phone || product.owner?.phone) && (
+                <div className="seller-row">
+                  <span>
+                    <FiPhone /> Phone
+                  </span>
+                  <span>{product.seller?.phone || product.owner?.phone}</span>
+                </div>
+              )}
+              {product.owner?.email && (
+                <div className="seller-row">
+                  <span>
+                    <FiMail /> College Email
+                  </span>
+                  <span>{product.owner.email}</span>
+                </div>
+              )}
               {product.location && (
                 <div className="seller-row">
                   <span>
                     <FiMapPin /> Location
                   </span>
                   <span>{product.location}</span>
+                </div>
+              )}
+              {product.owner?.createdAt && (
+                <div className="seller-row">
+                  <span>
+                    <FiClock /> Member Since
+                  </span>
+                  <span>
+                    {new Date(product.owner.createdAt).toLocaleDateString("en-IN", {
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </span>
                 </div>
               )}
               <div className="seller-row">

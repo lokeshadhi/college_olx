@@ -103,7 +103,7 @@ export const getProductById = async (req, res, next) => {
   try {
     const product = await Product.findById(req.params.id).populate(
       "owner",
-      "name department isEmailVerified profileImage sellerRating sellerReviewCount rating reviewCount"
+      "name email phone department degree year isEmailVerified profileImage sellerRating sellerReviewCount rating reviewCount createdAt"
     );
     if (!product) {
       return res.status(404).json({ success: false, message: "Product not found" });
