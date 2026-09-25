@@ -44,6 +44,9 @@
   --color-coral: var(--color-danger);
   --color-primary: #0071E3;             /* Apple Blue CTA */
   --color-crimson: #FF3B30;
+  --color-card: var(--color-paper-raised);
+  --color-surface: var(--color-paper-subtle);
+  --color-forest: var(--color-brand-accent);
 
   /* Gradients */
   --gradient-cta: linear-gradient(180deg, #0077ED 0%, #0071E3 100%);

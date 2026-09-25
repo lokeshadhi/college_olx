@@ -357,12 +357,13 @@ const ForgotPassword = () => {
                         textAlign: "center",
                         fontSize: "24px",
                         fontWeight: 700,
-                        fontFamily: "monospace",
-                        border: digit ? "2px solid var(--color-forest)" : "1px solid var(--color-border)",
-                        borderRadius: "var(--radius-sm)",
-                        background: "var(--color-paper-raised, #ffffff)",
+                        fontFamily: "var(--font-mono, monospace)",
+                        border: digit ? "2px solid var(--color-brand-accent)" : "1px solid var(--color-border)",
+                        borderRadius: "var(--radius-sm, 8px)",
+                        background: "var(--color-paper-subtle)",
                         color: "var(--color-ink)",
                         outline: "none",
+                        boxShadow: digit ? "0 0 0 3px var(--color-brand-accent-subtle)" : "none",
                         transition: "all 0.15s ease",
                       }}
                     />

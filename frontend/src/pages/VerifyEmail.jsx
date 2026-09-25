@@ -141,8 +141,8 @@ const VerifyEmail = () => {
               width: 56,
               height: 56,
               borderRadius: "50%",
-              background: "rgba(27, 77, 62, 0.1)",
-              color: "var(--color-primary, #1B4D3E)",
+              background: "var(--color-brand-accent-subtle)",
+              color: "var(--color-brand-accent)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -160,9 +160,9 @@ const VerifyEmail = () => {
 
           <div
             style={{
-              background: "var(--color-surface, #FAF7F2)",
-              border: "1px solid var(--color-border, #E5E7EB)",
-              borderRadius: "8px",
+              background: "var(--color-paper-subtle)",
+              border: "1px solid var(--color-border)",
+              borderRadius: "var(--radius-sm, 8px)",
               padding: "10px 16px",
               marginBottom: "24px",
               display: "flex",
@@ -170,11 +170,11 @@ const VerifyEmail = () => {
               justifyContent: "space-between",
               fontSize: "0.95rem",
               fontWeight: 600,
-              color: "var(--color-ink, #1F2937)",
+              color: "var(--color-ink)",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden", textOverflow: "ellipsis" }}>
-              <FiMail style={{ color: "var(--color-primary, #1B4D3E)", flexShrink: 0 }} />
+              <FiMail style={{ color: "var(--color-brand-accent)", flexShrink: 0 }} />
               {isEditingEmail ? (
                 <input
                   type="email"
@@ -185,7 +185,7 @@ const VerifyEmail = () => {
                   placeholder="123456@nitkkr.ac.in"
                 />
               ) : (
-                <span style={{ fontFamily: "monospace" }}>{email || "your email"}</span>
+                <span style={{ fontFamily: "var(--font-mono, monospace)" }}>{email || "your email"}</span>
               )}
             </div>
             <button
@@ -194,8 +194,8 @@ const VerifyEmail = () => {
               style={{
                 background: "none",
                 border: "none",
-                color: "var(--color-primary, #1B4D3E)",
-                fontSize: "0.8rem",
+                color: "var(--color-brand-accent)",
+                fontSize: "0.85rem",
                 fontWeight: 600,
                 cursor: "pointer",
                 padding: "4px 8px",
@@ -208,9 +208,9 @@ const VerifyEmail = () => {
           {errorMessage && (
             <div
               style={{
-                background: "rgba(217, 99, 75, 0.1)",
-                color: "var(--color-coral, #D9634B)",
-                border: "1px solid rgba(217, 99, 75, 0.25)",
+                background: "var(--color-danger-bg, rgba(255, 59, 48, 0.12))",
+                color: "var(--color-danger, #FF3B30)",
+                border: "1px solid rgba(255, 59, 48, 0.25)",
                 borderRadius: "8px",
                 padding: "10px 14px",
                 fontSize: "0.88rem",
@@ -248,15 +248,15 @@ const VerifyEmail = () => {
                     textAlign: "center",
                     fontSize: "1.6rem",
                     fontWeight: 700,
-                    fontFamily: "monospace",
-                    borderRadius: "8px",
+                    fontFamily: "var(--font-mono, monospace)",
+                    borderRadius: "var(--radius-sm, 8px)",
                     border: digit
-                      ? "2px solid var(--color-primary, #1B4D3E)"
-                      : "1px solid var(--color-border, #E5E7EB)",
-                    background: "var(--color-card, #ffffff)",
-                    color: "var(--color-ink, #1F2937)",
+                      ? "2px solid var(--color-brand-accent)"
+                      : "1px solid var(--color-border)",
+                    background: "var(--color-paper-subtle)",
+                    color: "var(--color-ink)",
                     outline: "none",
-                    boxShadow: digit ? "0 0 0 3px rgba(27, 77, 62, 0.12)" : "none",
+                    boxShadow: digit ? "0 0 0 3px var(--color-brand-accent-subtle)" : "none",
                     transition: "all 0.15s ease",
                   }}
                 />
@@ -310,8 +310,8 @@ const VerifyEmail = () => {
                 border: "none",
                 color:
                   cooldown > 0
-                    ? "var(--color-text-muted, #9CA3AF)"
-                    : "var(--color-primary, #1B4D3E)",
+                    ? "var(--color-text-muted)"
+                    : "var(--color-brand-accent)",
                 fontSize: "0.9rem",
                 fontWeight: 600,
                 cursor: cooldown > 0 ? "not-allowed" : "pointer",
@@ -324,19 +324,19 @@ const VerifyEmail = () => {
               {cooldown > 0 ? `Resend OTP in ${cooldown}s` : "Resend OTP"}
             </button>
 
-            <div style={{ marginTop: "8px", fontSize: "0.85rem" }}>
-              Already verified? <Link to="/login">Log in here</Link>
+            <div style={{ marginTop: "8px", fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
+              Already verified? <Link to="/login" style={{ color: "var(--color-brand-accent)", fontWeight: 600 }}>Log in here</Link>
             </div>
 
             <div
               style={{
                 marginTop: "12px",
                 padding: "10px 14px",
-                borderRadius: "6px",
-                background: "rgba(217, 119, 6, 0.08)",
-                border: "1px dashed rgba(217, 119, 6, 0.35)",
+                borderRadius: "var(--radius-sm, 8px)",
+                background: "var(--color-warning-bg, rgba(255, 149, 0, 0.12))",
+                border: "1px dashed var(--color-warning, #FF9500)",
                 fontSize: "0.78rem",
-                color: "var(--color-ink, #4B5563)",
+                color: "var(--color-ink)",
                 lineHeight: 1.5,
               }}
             >
