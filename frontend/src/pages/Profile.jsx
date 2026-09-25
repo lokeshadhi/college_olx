@@ -10,7 +10,7 @@ import PendingReviewsBanner from "../components/reviews/PendingReviewsBanner.jsx
 import UserReviewsList from "../components/reviews/UserReviewsList.jsx";
 import { useAuth } from "../hooks/useAuth.js";
 import { getMyProducts } from "../services/productService.js";
-import { YEARS } from "../utils/constants.js";
+import { DEGREES, YEARS } from "../utils/constants.js";
 
 const Profile = () => {
   const { user, updateProfile } = useAuth();
@@ -18,6 +18,7 @@ const Profile = () => {
     name: user?.name || "",
     phone: user?.phone || "",
     department: user?.department || "",
+    degree: user?.degree || "",
     year: user?.year || "",
   });
   const [saving, setSaving] = useState(false);
@@ -30,6 +31,18 @@ const Profile = () => {
       .then((res) => setStats(res.stats || { postedCount: 0, soldCount: 0, boughtCount: 0 }))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      setForm({
+        name: user.name || "",
+        phone: user.phone || "",
+        department: user.department || "",
+        degree: user.degree || "",
+        year: user.year || "",
+      });
+    }
+  }, [user]);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
   const handleProfileImageChange = async (e) => {
@@ -140,7 +153,7 @@ const Profile = () => {
 />
             <div className="profile-name">{user.name}</div>
             <div className="profile-dept">
-              {user.department} · {user.year}
+              {[user.degree, user.department, user.year].filter(Boolean).join(" · ")}
             </div>
             {user.isEmailVerified ? (
               <div
@@ -353,19 +366,33 @@ const Profile = () => {
                 </div>
               </div>
 
+              <div className="form-group">
+                <label className="form-label" htmlFor="department">
+                  Department
+                </label>
+                <input
+                  id="department"
+                  name="department"
+                  className="form-input"
+                  value={form.department}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label" htmlFor="department">
-                    Department
+                  <label className="form-label" htmlFor="degree">
+                    Degree
                   </label>
-                  <input
-                    id="department"
-                    name="department"
-                    className="form-input"
-                    value={form.department}
-                    onChange={handleChange}
-                    required
-                  />
+                  <select id="degree" name="degree" className="form-select" value={form.degree} onChange={handleChange} required>
+                    <option value="" disabled>Select degree</option>
+                    {DEGREES.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label" htmlFor="year">

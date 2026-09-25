@@ -34,8 +34,21 @@ export const registerRules = [
     }),
   body("phone").trim().matches(/^[0-9]{10}$/).withMessage("Phone number must be 10 digits"),
   body("department").trim().notEmpty().withMessage("Department is required"),
+  body("degree")
+    .optional()
+    .trim()
+    .customSanitizer((val) => {
+      if (!val) return "B.Tech";
+      const clean = val.replace(/[\.\s_-]/g, "").toUpperCase();
+      if (clean === "BTECH") return "B.Tech";
+      if (clean === "MTECH") return "M.Tech";
+      if (clean === "MCA") return "MCA";
+      return val;
+    })
+    .isIn(["B.Tech", "M.Tech", "MCA"])
+    .withMessage("Please select a valid degree (B.Tech, M.Tech, or MCA)"),
   body("year")
-    .isIn(["1st Year", "2nd Year", "3rd Year", "4th Year", "Final Year"])
+    .isIn(["1st Year", "2nd Year", "3rd Year", "4th Year"])
     .withMessage("Please select a valid year"),
   body("password")
     .matches(passwordComplexityRegex)

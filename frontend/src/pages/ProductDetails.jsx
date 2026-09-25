@@ -445,7 +445,7 @@ const ProductDetails = () => {
                                 marginTop: "2px",
                               }}
                             >
-                              {req.buyer?.department} · {req.buyer?.year}
+                              {[req.buyer?.degree, req.buyer?.department, req.buyer?.year].filter(Boolean).join(" · ")}
                             </div>
                           </div>
 

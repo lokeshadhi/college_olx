@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import MainLayout from "../layouts/MainLayout.jsx";
 import Button from "../components/Button.jsx";
 import { useAuth } from "../hooks/useAuth.js";
-import { YEARS } from "../utils/constants.js";
+import { DEGREES, YEARS } from "../utils/constants.js";
 
 import { getCollegeEmailValidationError } from "../utils/emailValidator.js";
 
@@ -13,6 +13,7 @@ const INITIAL_FORM = {
   email: "",
   phone: "",
   department: "",
+  degree: "",
   year: "",
   password: "",
   confirmPassword: "",
@@ -158,27 +159,52 @@ const Register = () => {
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label" htmlFor="year">
-                Year
-              </label>
-              <select
-                id="year"
-                name="year"
-                className="form-select"
-                value={form.year}
-                onChange={handleChange}
-                required
-              >
-                <option value="" disabled>
-                  Select your year
-                </option>
-                {YEARS.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label" htmlFor="degree">
+                  Degree
+                </label>
+                <select
+                  id="degree"
+                  name="degree"
+                  className="form-select"
+                  value={form.degree}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="" disabled>
+                    Select your degree
                   </option>
-                ))}
-              </select>
+                  {DEGREES.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="year">
+                  Year
+                </label>
+                <select
+                  id="year"
+                  name="year"
+                  className="form-select"
+                  value={form.year}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="" disabled>
+                    Select your year
+                  </option>
+                  {YEARS.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="form-row">

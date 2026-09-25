@@ -35,7 +35,7 @@ const uploadProfileImageToCloudinary = (buffer) => {
 };
 export const register = async (req, res, next) => {
   try {
-    const { name, email, phone, department, year, password } = req.body;
+    const { name, email, phone, department, degree, year, password } = req.body;
     const normalizedEmail = normalizeEmail(email);
 
     if (!isValidCollegeEmail(normalizedEmail)) {
@@ -65,6 +65,7 @@ export const register = async (req, res, next) => {
       existingUser.name = name || existingUser.name;
       existingUser.phone = phone || existingUser.phone;
       existingUser.department = department || existingUser.department;
+      if (degree) existingUser.degree = degree;
       existingUser.year = year || existingUser.year;
       if (password) existingUser.password = password;
 
@@ -97,6 +98,7 @@ export const register = async (req, res, next) => {
       email: normalizedEmail,
       phone,
       department,
+      degree: degree || "B.Tech",
       year,
       password,
       isEmailVerified: false,
@@ -734,7 +736,7 @@ export const getProfile = async (req, res, next) => {
 // @access  Private
 export const updateProfile = async (req, res, next) => {
   try {
-    const { name, phone, department, year, profileImage } = req.body;
+    const { name, phone, department, degree, year, profileImage } = req.body;
 
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -744,6 +746,7 @@ export const updateProfile = async (req, res, next) => {
     if (name) user.name = name;
     if (phone) user.phone = phone;
     if (department) user.department = department;
+    if (degree) user.degree = degree;
     if (year) user.year = year;
     if (profileImage) user.profileImage = profileImage;
 

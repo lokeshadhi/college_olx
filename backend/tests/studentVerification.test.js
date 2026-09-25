@@ -267,6 +267,31 @@ describe("CampusX Student Verification & NIT Kurukshetra Email Test Suite", () =
       );
     });
 
+    it("should reject registration when year is Final Year with 400", async () => {
+      const res = await fetch(`${baseUrl}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Test User",
+          email: "123999@nitkkr.ac.in",
+          phone: "9876543210",
+          department: "Computer Applications",
+          degree: "MCA",
+          year: "Final Year",
+          password: "SecurePassword123!",
+          confirmPassword: "SecurePassword123!",
+        }),
+      });
+
+      const body = await res.json();
+      assert.equal(res.status, 400);
+      assert.equal(body.success, false);
+      assert.ok(
+        body.errors?.some((e) => e.message.includes("Please select a valid year")) ||
+        body.message?.includes("valid year")
+      );
+    });
+
     it("should reject verification with incorrect OTP with 400", async () => {
       const res = await fetch(`${baseUrl}/api/auth/verify-email`, {
         method: "POST",

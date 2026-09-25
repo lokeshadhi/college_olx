@@ -29,6 +29,12 @@ const userSchema = new mongoose.Schema(
       required: [true, "Department is required"],
       trim: true,
     },
+    degree: {
+      type: String,
+      enum: ["B.Tech", "M.Tech", "MCA"],
+      default: "B.Tech",
+      trim: true,
+    },
     year: {
       type: String,
       required: [true, "Year is required"],
@@ -140,6 +146,17 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Normalize degree to standard casing/format
+userSchema.pre("validate", function (next) {
+  if (this.degree && typeof this.degree === "string") {
+    const clean = this.degree.replace(/[\.\s_-]/g, "").toUpperCase();
+    if (clean === "BTECH") this.degree = "B.Tech";
+    else if (clean === "MTECH") this.degree = "M.Tech";
+    else if (clean === "MCA") this.degree = "MCA";
+  }
+  next();
+});
 
 // Hash the password before saving, only when it has been modified.
 userSchema.pre("save", async function (next) {
