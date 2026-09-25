@@ -68,26 +68,10 @@ export const getActiveUserIds = () => {
 };
 
 /**
- * Enforces per-socket message rate limiting (max 5 messages per 3 seconds)
- * @param {string} socketId
- * @returns {boolean} True if allowed, false if limit exceeded
+ * Socket message rate limiting (Disabled)
+ * @returns {boolean} Always returns true
  */
-const checkSocketRateLimit = (socketId) => {
-  const now = Date.now();
-  const windowMs = 3000;
-  const maxMessages = 5;
-
-  let timestamps = socketRateLimits.get(socketId) || [];
-  timestamps = timestamps.filter((t) => now - t < windowMs);
-
-  if (timestamps.length >= maxMessages) {
-    return false;
-  }
-
-  timestamps.push(now);
-  socketRateLimits.set(socketId, timestamps);
-  return true;
-};
+const checkSocketRateLimit = () => true;
 
 /**
  * Initializes Socket.IO chat engine
