@@ -163,7 +163,7 @@ const ReviewCard = ({ review, currentUser, onEdit, onDelete }) => {
               }`,
             }}
           >
-            {review.role === "seller" ? "Seller Review" : "Buyer Review"}
+            {review.role === "seller" ? "as a seller" : "as a buyer"}
           </span>
 
           {isAuthor && (
