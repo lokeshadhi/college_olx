@@ -7,6 +7,7 @@ import {
   FiStar,
   FiCheckCircle,
   FiClock,
+  FiMapPin,
 } from "react-icons/fi";
 import MainLayout from "../layouts/MainLayout.jsx";
 import Loader from "../components/Loader.jsx";
@@ -184,25 +185,28 @@ const MyTransactions = () => {
           <button
             type="button"
             onClick={() => handleTabChange("all")}
-            className={`btn btn-sm ${activeTab === "all" ? "btn-primary" : "btn-outline"}`}
+            className={`transactions-segment-btn ${activeTab === "all" ? "active" : ""}`}
           >
-            All Deals ({transactions.length})
+            <span>All Deals</span>
+            <span className="transactions-segment-count">{transactions.length}</span>
           </button>
 
           <button
             type="button"
             onClick={() => handleTabChange("purchases")}
-            className={`btn btn-sm ${activeTab === "purchases" ? "btn-primary" : "btn-outline"}`}
+            className={`transactions-segment-btn ${activeTab === "purchases" ? "active" : ""}`}
           >
-            My Bids & Purchases ({purchases.length})
+            <span>My Bids & Purchases</span>
+            <span className="transactions-segment-count">{purchases.length}</span>
           </button>
 
           <button
             type="button"
             onClick={() => handleTabChange("sales")}
-            className={`btn btn-sm ${activeTab === "sales" ? "btn-primary" : "btn-outline"}`}
+            className={`transactions-segment-btn ${activeTab === "sales" ? "active" : ""}`}
           >
-            My Sales & Offers ({sales.length})
+            <span>My Sales & Offers</span>
+            <span className="transactions-segment-count">{sales.length}</span>
           </button>
         </div>
 
@@ -295,7 +299,11 @@ const MyTransactions = () => {
                               : "transaction-badge-cancelled"
                           }`}
                         >
-                          {t.status === "PENDING" ? "PENDING APPROVAL" : t.status}
+                          {t.status === "PENDING"
+                            ? "Pending Approval"
+                            : t.status === "COMPLETED"
+                            ? "Completed"
+                            : "Cancelled"}
                         </span>
                       </div>
 
@@ -324,12 +332,15 @@ const MyTransactions = () => {
                             />
                           )}
                         </span>
-                        <span>•</span>
+                        <span className="transaction-meta-dot">•</span>
                         <span>{formattedDate}</span>
                         {t.meetupLocation && (
                           <>
-                            <span>•</span>
-                            <span>📍 {t.meetupLocation}</span>
+                            <span className="transaction-meta-dot">•</span>
+                            <span className="transaction-location-pill">
+                              <FiMapPin size={11} />
+                              <span>{t.meetupLocation}</span>
+                            </span>
                           </>
                         )}
                       </div>
@@ -356,50 +367,38 @@ const MyTransactions = () => {
                       <div>
                         {!isBuyer ? (
                           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                            <Button
-                              variant="primary"
+                            <button
+                              type="button"
+                              className="transaction-accept-btn"
                               onClick={() => handleApprove(t._id)}
-                              loading={actionLoading === t._id}
-                              style={{
-                                background: "var(--color-brand-accent)",
-                                padding: "6px 14px",
-                                fontSize: "0.82rem",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "6px",
-                                border: "none",
-                              }}
+                              disabled={actionLoading === t._id}
                             >
                               <FiCheckCircle size={14} />
-                              <span>Accept Offer</span>
-                            </Button>
-                            <Button
-                              variant="outline"
+                              <span>{actionLoading === t._id ? "Accepting..." : "Accept Offer"}</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="transaction-decline-btn"
                               onClick={() => handleDecline(t._id)}
                               disabled={actionLoading === t._id}
-                              style={{
-                                color: "var(--color-danger)",
-                                borderColor: "var(--color-danger)",
-                                padding: "6px 12px",
-                                fontSize: "0.82rem",
-                              }}
                             >
                               Decline
-                            </Button>
+                            </button>
                           </div>
                         ) : (
                           <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
                             <span
                               style={{
-                                fontSize: "0.82rem",
-                                color: "var(--color-apple-orange)",
-                                background: "var(--color-warning-bg)",
+                                fontSize: "0.8rem",
+                                color: "#FF9F0A",
+                                background: "rgba(255, 159, 10, 0.12)",
+                                border: "1px solid rgba(255, 159, 10, 0.22)",
                                 padding: "4px 10px",
-                                borderRadius: "999px",
-                                fontWeight: 600,
+                                borderRadius: "9999px",
+                                fontWeight: 500,
                                 display: "inline-flex",
                                 alignItems: "center",
-                                gap: "4px",
+                                gap: "5px",
                               }}
                             >
                               <FiClock size={12} /> Awaiting Seller Approval
@@ -426,22 +425,14 @@ const MyTransactions = () => {
                     {isCompleted && (
                       <div>
                         {isPendingReview ? (
-                          <Button
-                            variant="primary"
+                          <button
+                            type="button"
+                            className="transaction-rate-btn"
                             onClick={() => handleOpenReview(t, isBuyer)}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              padding: "8px 14px",
-                              fontSize: "0.85rem",
-                              background: "var(--color-brand-accent)",
-                              border: "none",
-                            }}
                           >
-                            <FiStar size={15} />
+                            <FiStar size={14} />
                             <span>{isBuyer ? "Rate Seller" : "Rate Buyer"}</span>
-                          </Button>
+                          </button>
                         ) : (
                           <div className="transaction-status-pill success">
                             <FiCheckCircle size={14} />

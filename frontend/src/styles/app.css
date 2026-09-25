@@ -516,30 +516,72 @@
 }
 
 /* --------------------------------------------------------------------------
-   My Purchases & Transactions Responsive System
+   My Purchases & Transactions - Apple-Inspired Classy System
    -------------------------------------------------------------------------- */
 .transactions-tab-bar {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 12px;
-  overflow-x: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 5px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border);
+  margin-bottom: 28px;
   max-width: 100%;
-  width: 100%;
+  overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
   -webkit-overflow-scrolling: touch;
-  flex-wrap: nowrap;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .transactions-tab-bar::-webkit-scrollbar {
   display: none;
 }
 
-.transactions-tab-bar .btn {
-  flex-shrink: 0;
+.transactions-segment-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+  font-size: 0.86rem;
+  font-weight: 500;
+  cursor: pointer;
   white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.transactions-segment-btn:hover {
+  color: var(--color-ink);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.transactions-segment-btn.active {
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.transactions-segment-count {
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  line-height: 1.2;
+}
+
+.transactions-segment-btn.active .transactions-segment-count {
+  background: rgba(10, 132, 255, 0.15);
+  color: #0A84FF;
 }
 
 .transactions-list {
@@ -553,48 +595,58 @@
 
 .transaction-card {
   background: var(--color-paper-raised);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 20px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  box-shadow: var(--shadow-sm);
-  transition: all var(--transition);
+  gap: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.16);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.22s ease;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   min-width: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, sans-serif;
 }
 
 .transaction-card:hover {
-  border-color: var(--color-border-hover);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.26);
 }
 
 .transaction-main {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
   flex: 1;
   min-width: 0;
 }
 
 .transaction-thumb {
-  width: 70px;
-  height: 70px;
-  border-radius: var(--radius-sm);
+  width: 76px;
+  height: 76px;
+  border-radius: 14px;
   overflow: hidden;
   background: var(--color-paper-subtle);
   flex-shrink: 0;
-  border: 1px solid var(--color-border);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .transaction-thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.transaction-card:hover .transaction-thumb img {
+  transform: scale(1.04);
 }
 
 .transaction-info {
@@ -611,45 +663,55 @@
 }
 
 .transaction-badge {
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 0.68rem;
+  font-weight: 600;
   text-transform: uppercase;
-  padding: 2px 8px;
-  border-radius: var(--radius-xs);
-  letter-spacing: 0.03em;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .transaction-badge-purchase {
-  background: rgba(52, 199, 89, 0.12);
-  color: var(--color-success);
+  background: rgba(48, 209, 88, 0.12);
+  color: #30D158;
+  border: 1px solid rgba(48, 209, 88, 0.22);
 }
 
 .transaction-badge-sale {
-  background: rgba(0, 113, 227, 0.12);
-  color: var(--color-brand-accent);
+  background: rgba(10, 132, 255, 0.12);
+  color: #0A84FF;
+  border: 1px solid rgba(10, 132, 255, 0.22);
 }
 
 .transaction-badge-completed {
-  background: rgba(52, 199, 89, 0.14);
-  color: var(--color-success);
+  background: rgba(48, 209, 88, 0.12);
+  color: #30D158;
+  border: 1px solid rgba(48, 209, 88, 0.22);
 }
 
 .transaction-badge-pending {
-  background: rgba(245, 99, 0, 0.14);
-  color: var(--color-apple-orange);
+  background: rgba(255, 159, 10, 0.12);
+  color: #FF9F0A;
+  border: 1px solid rgba(255, 159, 10, 0.22);
 }
 
 .transaction-badge-cancelled {
-  background: rgba(255, 59, 48, 0.12);
-  color: var(--color-danger);
+  background: rgba(255, 69, 58, 0.12);
+  color: #FF453A;
+  border: 1px solid rgba(255, 69, 58, 0.22);
 }
 
 .transaction-title {
   margin: 0 0 6px;
-  font-size: 1.05rem;
-  font-weight: 700;
+  font-size: 1.15rem;
+  font-weight: 600;
   color: var(--color-ink);
   line-height: 1.3;
+  letter-spacing: -0.015em;
+  text-transform: capitalize;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -658,13 +720,15 @@
 .transaction-title a {
   color: inherit;
   text-decoration: none;
+  transition: color 0.15s ease;
 }
+
 .transaction-title a:hover {
-  color: var(--color-brand-accent);
+  color: #0A84FF;
 }
 
 .transaction-meta {
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   color: var(--color-text-muted);
   display: flex;
   align-items: center;
@@ -675,52 +739,141 @@
 
 .transaction-meta strong {
   color: var(--color-ink);
+  font-weight: 500;
+}
+
+.transaction-meta-dot {
+  color: rgba(255, 255, 255, 0.2);
+  font-size: 0.75rem;
+}
+
+.transaction-location-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
 }
 
 .transaction-actions-col {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
   flex-shrink: 0;
   flex-wrap: wrap;
 }
 
 .transaction-price-block {
   text-align: right;
+  min-width: 90px;
 }
 
 .transaction-price {
-  font-family: var(--font-mono);
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  font-size: 1.4rem;
+  font-weight: 600;
   color: var(--color-ink);
-  line-height: 1.2;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
 .transaction-price-label {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--color-text-muted);
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .transaction-status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border-radius: var(--radius-full);
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 9999px;
   font-size: 0.82rem;
-  font-weight: 600;
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .transaction-status-pill.success {
-  background: rgba(52, 199, 89, 0.12);
-  color: var(--color-success);
+  background: rgba(48, 209, 88, 0.12);
+  border: 1px solid rgba(48, 209, 88, 0.25);
+  color: #30D158;
 }
 
 .transaction-status-pill.warning {
-  background: rgba(245, 99, 0, 0.12);
-  color: var(--color-apple-orange);
+  background: rgba(255, 159, 10, 0.12);
+  border: 1px solid rgba(255, 159, 10, 0.25);
+  color: #FF9F0A;
+}
+
+.transaction-rate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 9999px;
+  font-size: 0.84rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  background: #0071E3;
+  color: #FFFFFF;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 113, 227, 0.35);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.transaction-rate-btn:hover {
+  background: #0077ED;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 113, 227, 0.45);
+}
+
+.transaction-accept-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  background: #30D158;
+  color: #FFFFFF;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(48, 209, 88, 0.3);
+  transition: all 0.18s ease;
+}
+
+.transaction-accept-btn:hover {
+  background: #34C759;
+  transform: translateY(-1px);
+}
+
+.transaction-decline-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  background: transparent;
+  color: #FF453A;
+  border: 1px solid rgba(255, 69, 58, 0.35);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.transaction-decline-btn:hover {
+  background: rgba(255, 69, 58, 0.1);
+  border-color: #FF453A;
 }
 
 @media (max-width: 680px) {
@@ -728,7 +881,7 @@
     flex-direction: column;
     align-items: stretch;
     padding: 16px;
-    gap: 14px;
+    gap: 16px;
   }
 
   .transaction-main {
@@ -736,12 +889,12 @@
   }
 
   .transaction-thumb {
-    width: 60px;
-    height: 60px;
+    width: 64px;
+    height: 64px;
   }
 
   .transaction-title {
-    font-size: 0.98rem;
+    font-size: 1.05rem;
     white-space: normal;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -751,19 +904,16 @@
   .transaction-actions-col {
     width: 100%;
     justify-content: space-between;
-    padding-top: 12px;
-    border-top: 1px solid var(--color-border);
-    gap: 10px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    gap: 12px;
   }
 
   .transaction-price-block {
     text-align: left;
   }
-
-  .transaction-price {
-    font-size: 1.15rem;
-  }
 }
+
 
 /* --------------------------------------------------------------------------
    Student Profile Hub
