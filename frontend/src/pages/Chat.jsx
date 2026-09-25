@@ -29,9 +29,7 @@ const Chat = () => {
   const [isOtherTyping, setIsOtherTyping] = useState(false);
   const [blockStatus, setBlockStatus] = useState({ isBlocked: false, blockedByMe: false, blockedByUser: false });
   const [reportModalOpen, setReportModalOpen] = useState(false);
-  const [keyBackupModalOpen, setKeyBackupModalOpen] = useState(false);
-  const [keyModalMode, setKeyModalMode] = useState("backup");
-  const [restoreInfo, setRestoreInfo] = useState({ hasBackup: true, serverFingerprint: "" });
+  const [keyStatusModalOpen, setKeyStatusModalOpen] = useState(false);
   const [peerE2eeInfo, setPeerE2eeInfo] = useState({
     isEncrypted: false,
     peerHasKey: false,
@@ -137,7 +135,7 @@ const Chat = () => {
     };
   }, []);
 
-  // Initialize E2EE cryptographic identity for logged-in user
+  // Initialize E2EE cryptographic identity for logged-in user from local IndexedDB
   useEffect(() => {
     if (!user?._id) return;
     let isMounted = true;
@@ -146,17 +144,8 @@ const Chat = () => {
       .initUserKeys(user)
       .then((res) => {
         if (!isMounted) return;
-        if (res?.status === "needs_restore") {
-          setRestoreInfo({
-            hasBackup: Boolean(res.hasBackup),
-            serverFingerprint: res.serverFingerprint || "",
-          });
-          setKeyModalMode("restore");
-          setKeyBackupModalOpen(true);
-        } else if (res?.needsBackup) {
-          // On first device registration, prompt user to set a backup passphrase
-          setKeyModalMode("backup");
-          setKeyBackupModalOpen(true);
+        if (res?.status === "missing_local_keys") {
+          console.info("E2EE: Keys not present in local storage. Log in to restore keys.");
         }
       })
       .catch((err) => {
@@ -616,8 +605,7 @@ const Chat = () => {
               peerConversations={peerConversations}
               onSelectProductConversation={handleSelectConversation}
               onOpenKeyBackup={() => {
-                setKeyModalMode("backup");
-                setKeyBackupModalOpen(true);
+                setKeyStatusModalOpen(true);
               }}
             />
           </div>
@@ -632,17 +620,11 @@ const Chat = () => {
         conversationId={conversationId}
       />
 
-      {/* End-to-End Encryption Key Backup & Restore Modal */}
+      {/* End-to-End Encryption Key & Security Status Modal */}
       <KeyBackupModal
-        isOpen={keyBackupModalOpen}
-        onClose={() => setKeyBackupModalOpen(false)}
-        mode={keyModalMode}
+        isOpen={keyStatusModalOpen}
+        onClose={() => setKeyStatusModalOpen(false)}
         user={user}
-        hasBackup={restoreInfo.hasBackup}
-        serverFingerprint={restoreInfo.serverFingerprint}
-        onRestoreSuccess={() => {
-          if (conversationId) loadActiveConversation(conversationId, 1);
-        }}
       />
     </MainLayout>
   );

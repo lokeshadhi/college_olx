@@ -356,9 +356,9 @@ const ChatWindow = ({
               type="button"
               className="chat-action-btn"
               onClick={onOpenKeyBackup}
-              title="Manage End-to-End Encryption Keys & Backup"
+              title="View End-to-End Encryption Security Status"
             >
-              <FiShield /> <span className="btn-label">Keys</span>
+              <FiShield /> <span className="btn-label">Security</span>
             </button>
 
             {blockStatus?.blockedByMe ? (

@@ -69,9 +69,13 @@ class E2EEService {
   }
 
   /**
-   * Initializes E2EE for the logged-in user
+   * Initializes or loads local E2EE keys from IndexedDB for the logged-in user.
+   * Password-based restoration and initial key provisioning are handled during login
+   * via ensureUserKeysWithPassword(). This method strictly checks and activates
+   * locally stored keys without ever prompting for a backup passphrase.
+   * 
    * @param {object} user - Logged in user object ({ _id, name, email })
-   * @returns {Promise<{ status: string, fingerprint?: string, hasBackup?: boolean }>}
+   * @returns {Promise<{ status: string, fingerprint?: string }>}
    */
   async initUserKeys(user) {
     if (!user || !user._id) {
@@ -81,7 +85,7 @@ class E2EEService {
     const userId = user._id.toString();
     this.currentUserId = userId;
 
-    // 1. Check if user already has local keys in IndexedDB
+    // Check if user already has local keys in IndexedDB
     const local = await getLocalKeyPair(userId);
 
     if (local && local.privateKeyPkcs8 && local.publicKeySpki) {
@@ -106,44 +110,7 @@ class E2EEService {
       }
     }
 
-    // 2. If no local keys found in IndexedDB, check if an identity ALREADY exists on the server!
-    let serverIdentity = null;
-    try {
-      const pubRes = await api.get(`/chat/keys/public-key/${userId}`);
-      if (pubRes.data?.success && pubRes.data?.data?.publicKey) {
-        serverIdentity = pubRes.data.data;
-      }
-    } catch (err) {
-      // 404 means no public key registered on server yet
-    }
-
-    if (serverIdentity) {
-      // User has an established cryptographic identity on another device!
-      // Check if an encrypted backup exists on server
-      let hasBackup = false;
-      try {
-        const backupRes = await api.get("/chat/keys/backup");
-        if (backupRes.data?.success && backupRes.data?.data?.ciphertext) {
-          hasBackup = true;
-        }
-      } catch (err) {
-        // 404 means no backup on server
-      }
-
-      return {
-        status: "needs_restore",
-        hasBackup,
-        serverFingerprint: serverIdentity.fingerprint,
-      };
-    }
-
-    // 3. No identity exists on server: This is the user's first device!
-    // Generate a brand new RSA-OAEP key pair to establish their single identity
-    const newKeyResult = await this.generateAndRegisterNewKeys(userId);
-    return {
-      ...newKeyResult,
-      needsBackup: true,
-    };
+    return { status: "missing_local_keys" };
   }
 
   /**
@@ -507,11 +474,10 @@ class E2EEService {
         }
       }
 
-      // If automatic restore could not decrypt (e.g. legacy passphrase used), flag for legacy fallback
+      // Automatic restore failed (corrupted backup or key mismatch)
       return {
-        status: "needs_legacy_restore",
-        hasBackup: true,
-        serverFingerprint: serverIdentity.fingerprint,
+        status: "error",
+        error: "Failed to decrypt private key backup with login password.",
       };
     }
 
@@ -526,8 +492,9 @@ class E2EEService {
     }
 
     return {
-      ...newKeyResult,
-      needsBackup: false,
+      status: "ready",
+      fingerprint: newKeyResult.fingerprint,
+      isNewKey: true,
     };
   }
 
