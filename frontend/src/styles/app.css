@@ -692,6 +692,12 @@
   border: 1px solid rgba(48, 209, 88, 0.22);
 }
 
+.transaction-badge-accepted {
+  background: rgba(10, 132, 255, 0.12);
+  color: #0A84FF;
+  border: 1px solid rgba(10, 132, 255, 0.25);
+}
+
 .transaction-badge-pending {
   background: rgba(255, 159, 10, 0.12);
   color: #FF9F0A;
@@ -761,10 +767,11 @@
 
 .transaction-actions-col {
   display: flex;
-  align-items: center;
-  gap: 20px;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
   flex-shrink: 0;
-  flex-wrap: wrap;
 }
 
 .transaction-price-block {
@@ -813,6 +820,12 @@
   color: #FF9F0A;
 }
 
+.transaction-status-pill.info {
+  background: rgba(10, 132, 255, 0.12);
+  border: 1px solid rgba(10, 132, 255, 0.25);
+  color: #0A84FF;
+}
+
 .transaction-rate-btn {
   display: inline-flex;
   align-items: center;
@@ -834,6 +847,29 @@
   background: #0077ED;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 113, 227, 0.45);
+}
+
+.transaction-complete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 9999px;
+  font-size: 0.84rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  background: #30D158;
+  color: #FFFFFF;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(48, 209, 88, 0.35);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.transaction-complete-btn:hover {
+  background: #34C759;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(48, 209, 88, 0.45);
 }
 
 .transaction-accept-btn {
@@ -903,6 +939,8 @@
 
   .transaction-actions-col {
     width: 100%;
+    flex-direction: row-reverse;
+    align-items: center;
     justify-content: space-between;
     padding-top: 14px;
     border-top: 1px solid rgba(255, 255, 255, 0.08);

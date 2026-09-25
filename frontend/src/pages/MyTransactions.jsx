@@ -125,13 +125,29 @@ const MyTransactions = () => {
     if (!txnId) return;
     setActionLoading(txnId);
     try {
-      const res = await updateTransactionStatus(txnId, { status: "COMPLETED" });
+      const res = await updateTransactionStatus(txnId, { status: "ACCEPTED" });
       if (res.success) {
-        toast.success("Purchase request approved! Transaction completed.");
+        toast.success("Offer accepted! Meet up on campus to complete the deal.");
         await loadData();
       }
     } catch (err) {
-      toast.error(err.message || "Failed to approve request");
+      toast.error(err.message || "Failed to accept offer");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCompleteDeal = async (txnId) => {
+    if (!txnId) return;
+    setActionLoading(txnId);
+    try {
+      const res = await updateTransactionStatus(txnId, { status: "COMPLETED" });
+      if (res.success) {
+        toast.success("Deal completed! You can now rate each other.");
+        await loadData();
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to complete deal");
     } finally {
       setActionLoading(null);
     }
@@ -242,6 +258,8 @@ const MyTransactions = () => {
               const isBuyer = getUserId(t.buyer) === currentUserIdStr;
               const counterpart = isBuyer ? t.seller : t.buyer;
               const isCompleted = t.status === "COMPLETED";
+              const isAccepted = t.status === "ACCEPTED";
+              const isPending = t.status === "PENDING";
               const isPendingReview = t._id ? pendingTxnIds.has(t._id.toString()) : false;
               const formattedDate = t.createdAt
                 ? new Date(t.createdAt).toLocaleDateString("en-IN", {
@@ -294,6 +312,8 @@ const MyTransactions = () => {
                           className={`transaction-badge ${
                             t.status === "COMPLETED"
                               ? "transaction-badge-completed"
+                              : t.status === "ACCEPTED"
+                              ? "transaction-badge-accepted"
                               : t.status === "PENDING"
                               ? "transaction-badge-pending"
                               : "transaction-badge-cancelled"
@@ -301,6 +321,8 @@ const MyTransactions = () => {
                         >
                           {t.status === "PENDING"
                             ? "Pending Approval"
+                            : t.status === "ACCEPTED"
+                            ? "Meetup in Progress"
                             : t.status === "COMPLETED"
                             ? "Completed"
                             : "Cancelled"}
@@ -347,23 +369,62 @@ const MyTransactions = () => {
                     </div>
                   </div>
 
-                  {/* Price and Actions */}
+                  {/* Actions & Price Column */}
                   <div className="transaction-actions-col">
-                    <div className="transaction-price-block">
-                      <div className="transaction-price">
-                        ₹{Number(t.amount || t.product?.price || 0).toLocaleString("en-IN")}
+                    {/* 1. Review Status or Rate Button for Completed Deals (Rendered at TOP of price) */}
+                    {isCompleted && (
+                      <div>
+                        {isPendingReview ? (
+                          <button
+                            type="button"
+                            className="transaction-rate-btn"
+                            onClick={() => handleOpenReview(t, isBuyer)}
+                          >
+                            <FiStar size={14} />
+                            <span>{isBuyer ? "Rate Seller" : "Rate Buyer"}</span>
+                          </button>
+                        ) : (
+                          <div className="transaction-status-pill success">
+                            <FiCheckCircle size={14} />
+                            <span>Review Submitted</span>
+                          </div>
+                        )}
                       </div>
-                      <div className="transaction-price-label">
-                        {t.status === "PENDING"
-                          ? isBuyer
-                            ? "Your Bid Offer"
-                            : "Buyer's Bid Offer"
-                          : "Final Amount"}
-                      </div>
-                    </div>
+                    )}
 
-                    {/* Pending Request Actions (Approve/Decline for Seller, Cancel for Buyer) */}
-                    {t.status === "PENDING" && (
+                    {/* 2. Meetup in Progress State (ACCEPTED) */}
+                    {isAccepted && (
+                      <div>
+                        {!isBuyer ? (
+                          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                            <button
+                              type="button"
+                              className="transaction-complete-btn"
+                              onClick={() => handleCompleteDeal(t._id)}
+                              disabled={actionLoading === t._id}
+                            >
+                              <FiCheckCircle size={14} />
+                              <span>{actionLoading === t._id ? "Completing..." : "Complete Deal"}</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="transaction-decline-btn"
+                              onClick={() => handleDecline(t._id)}
+                              disabled={actionLoading === t._id}
+                            >
+                              Cancel Deal
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="transaction-status-pill info">
+                            <FiClock size={12} /> Meetup in Progress
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 3. Pending Bid Requests (PENDING) */}
+                    {isPending && (
                       <div>
                         {!isBuyer ? (
                           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
@@ -421,26 +482,21 @@ const MyTransactions = () => {
                       </div>
                     )}
 
-                    {/* Review Button or Review Status for Completed Deals */}
-                    {isCompleted && (
-                      <div>
-                        {isPendingReview ? (
-                          <button
-                            type="button"
-                            className="transaction-rate-btn"
-                            onClick={() => handleOpenReview(t, isBuyer)}
-                          >
-                            <FiStar size={14} />
-                            <span>{isBuyer ? "Rate Seller" : "Rate Buyer"}</span>
-                          </button>
-                        ) : (
-                          <div className="transaction-status-pill success">
-                            <FiCheckCircle size={14} />
-                            <span>Review Submitted</span>
-                          </div>
-                        )}
+                    {/* 4. Price Block (Positioned BELOW the action button / status pill) */}
+                    <div className="transaction-price-block">
+                      <div className="transaction-price">
+                        ₹{Number(t.amount || t.product?.price || 0).toLocaleString("en-IN")}
                       </div>
-                    )}
+                      <div className="transaction-price-label">
+                        {t.status === "PENDING"
+                          ? isBuyer
+                            ? "Your Bid Offer"
+                            : "Buyer's Bid Offer"
+                          : t.status === "ACCEPTED"
+                          ? "Agreed Price"
+                          : "Final Amount"}
+                      </div>
+                    </div>
                   </div>
                 </div>
               );

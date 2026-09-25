@@ -169,6 +169,18 @@ export const createTransaction = async (req, res, next) => {
       });
     }
 
+    // Check if an accepted transaction already exists for this product
+    const existingAccepted = await Transaction.findOne({
+      product: productId,
+      status: "ACCEPTED",
+    });
+    if (existingAccepted) {
+      return res.status(400).json({
+        success: false,
+        message: "An offer for this product has already been accepted and is pending campus meetup.",
+      });
+    }
+
     // Every purchase request strictly begins as PENDING and requires seller approval
     const transaction = new Transaction({
       buyer: currentUserId,
@@ -254,7 +266,32 @@ export const getProductTransaction = async (req, res, next) => {
         });
       }
 
-      // If not completed, check for pending purchase requests / bids from buyers
+      // Check if there is an active deal accepted in meetup progress
+      const acceptedTxn = await Transaction.findOne({
+        product: productId,
+        status: "ACCEPTED",
+      })
+        .populate("product", "title images price category condition owner status")
+        .populate("buyer", "name email department year isEmailVerified profileImage")
+        .populate("seller", "name email department year isEmailVerified profileImage");
+
+      if (acceptedTxn) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            transaction: acceptedTxn,
+            targetUser: acceptedTxn.buyer,
+            targetRole: "buyer",
+            isBuyer: false,
+            isSeller: true,
+            hasReviewed: false,
+            existingReview: null,
+            pendingRequests: [],
+          },
+        });
+      }
+
+      // If not completed or accepted, check for pending purchase requests / bids from buyers
       const pendingTxns = await Transaction.find({
         product: productId,
         status: "PENDING",
@@ -314,6 +351,31 @@ export const getProductTransaction = async (req, res, next) => {
           isSeller: false,
           hasReviewed: Boolean(existingReview),
           existingReview,
+        },
+      });
+    }
+
+    // Check if buyer has an active accepted transaction in meetup progress
+    const acceptedTxn = await Transaction.findOne({
+      product: productId,
+      buyer: currentUserId,
+      status: "ACCEPTED",
+    })
+      .populate("product", "title images price category condition owner status")
+      .populate("buyer", "name email department year isEmailVerified profileImage")
+      .populate("seller", "name email department year isEmailVerified profileImage");
+
+    if (acceptedTxn) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          transaction: acceptedTxn,
+          targetUser: acceptedTxn.seller,
+          targetRole: "seller",
+          isBuyer: true,
+          isSeller: false,
+          hasReviewed: false,
+          existingReview: null,
         },
       });
     }
@@ -430,12 +492,23 @@ export const updateTransactionStatus = async (req, res, next) => {
         await product.save({ validateBeforeSave: false });
       }
 
-      // Auto-cancel any other pending requests for the same product
+      // Auto-cancel any other pending or accepted requests for the same product
       await Transaction.updateMany(
         {
           product: transaction.product,
           _id: { $ne: transaction._id },
           status: "PENDING",
+        },
+        {
+          status: "CANCELLED",
+          notes: "Product sold to another buyer",
+        }
+      );
+      await Transaction.updateMany(
+        {
+          product: transaction.product,
+          _id: { $ne: transaction._id },
+          status: "ACCEPTED",
         },
         {
           status: "CANCELLED",

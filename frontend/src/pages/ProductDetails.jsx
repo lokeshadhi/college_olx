@@ -168,15 +168,30 @@ const ProductDetails = () => {
   const handleApproveRequest = async (txnId) => {
     setActionLoading(txnId);
     try {
+      const res = await updateTransactionStatus(txnId, { status: "ACCEPTED" });
+      if (res.success) {
+        toast.success("Offer accepted! Meet up on campus to complete the deal.");
+        fetchTxnInfo();
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to accept offer");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCompleteRequest = async (txnId) => {
+    setActionLoading(txnId);
+    try {
       const res = await updateTransactionStatus(txnId, { status: "COMPLETED" });
       if (res.success) {
-        toast.success("Offer accepted! Transaction completed.");
+        toast.success("Deal completed! You can now rate each other.");
         setProduct((prev) => ({ ...prev, status: "Sold" }));
         fetchTxnInfo();
         setTimeout(() => setReviewModalOpen(true), 400);
       }
     } catch (err) {
-      toast.error(err.message || "Failed to accept offer");
+      toast.error(err.message || "Failed to complete deal");
     } finally {
       setActionLoading(null);
     }
@@ -615,6 +630,112 @@ const ProductDetails = () => {
                       Withdraw Offer
                     </Button>
                   </div>
+                </div>
+              )}
+
+              {/* 2.5. MEETUP IN PROGRESS (ACCEPTED) */}
+              {txnInfo?.transaction?.status === "ACCEPTED" && (
+                <div
+                  style={{
+                    background: "var(--color-paper-subtle)",
+                    border: "1px solid rgba(10, 132, 255, 0.35)",
+                    borderRadius: "var(--radius-md)",
+                    padding: "18px",
+                    textAlign: "center",
+                    boxShadow: "0 4px 16px rgba(0, 113, 227, 0.08)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px",
+                      fontWeight: 600,
+                      color: "#0A84FF",
+                      marginBottom: "6px",
+                      fontSize: "0.95rem",
+                    }}
+                  >
+                    <FiClock />
+                    <span>Meetup in Progress</span>
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
+                      fontSize: "1.5rem",
+                      fontWeight: 700,
+                      color: "var(--color-ink)",
+                      margin: "4px 0",
+                    }}
+                  >
+                    ₹{Number(txnInfo.transaction.amount).toLocaleString("en-IN")}
+                  </div>
+                  <p
+                    style={{
+                      margin: "0 0 8px",
+                      fontSize: "0.84rem",
+                      color: "var(--color-text-muted)",
+                    }}
+                  >
+                    {isOwner
+                      ? `Agreed offer with ${txnInfo.targetUser?.name || "Buyer"}. Meet on campus to exchange item and payment.`
+                      : `Offer accepted! Meet ${txnInfo.targetUser?.name || "Seller"} on campus to complete transaction.`}
+                  </p>
+                  {txnInfo.transaction.meetupLocation && (
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        padding: "3px 10px",
+                        borderRadius: "9999px",
+                        background: "rgba(255, 255, 255, 0.05)",
+                        border: "1px solid rgba(255, 255, 255, 0.08)",
+                        fontSize: "0.8rem",
+                        color: "var(--color-text-muted)",
+                        marginBottom: "14px",
+                      }}
+                    >
+                      <FiMapPin size={12} />
+                      <span>{txnInfo.transaction.meetupLocation}</span>
+                    </div>
+                  )}
+
+                  {isOwner && (
+                    <div style={{ display: "flex", gap: "8px", justifyContent: "center", marginTop: "6px" }}>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => handleCompleteRequest(txnInfo.transaction._id)}
+                        loading={actionLoading === txnInfo.transaction._id}
+                        disabled={Boolean(actionLoading)}
+                        style={{
+                          background: "#30D158",
+                          border: "none",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          fontWeight: 500,
+                        }}
+                      >
+                        <FiCheckCircle size={14} />
+                        <span>Complete Deal</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeclineRequest(txnInfo.transaction._id)}
+                        disabled={Boolean(actionLoading)}
+                        style={{
+                          color: "var(--color-danger)",
+                          borderColor: "rgba(255, 69, 58, 0.35)",
+                        }}
+                      >
+                        Cancel Deal
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
 
