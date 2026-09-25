@@ -95,6 +95,19 @@ const Chat = () => {
     return null;
   }, [activeConversation, conversations, conversationId, currentUserId]);
 
+  // Find all conversations belonging to this same peer/seller across different products
+  const peerConversations = useMemo(() => {
+    if (!otherUser?._id) return [];
+    const otherIdStr = otherUser._id.toString();
+    return conversations.filter((c) => {
+      const p = c.participants?.find((part) => {
+        const id = (part?._id || part?.id || part || "").toString();
+        return id === otherIdStr;
+      });
+      return Boolean(p);
+    });
+  }, [conversations, otherUser?._id]);
+
   // Mobile virtual keyboard & viewport height dynamic tracking
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -600,6 +613,8 @@ const Chat = () => {
               onReportUser={() => setReportModalOpen(true)}
               e2eeStatus={peerE2eeInfo}
               otherUser={otherUser}
+              peerConversations={peerConversations}
+              onSelectProductConversation={handleSelectConversation}
               onOpenKeyBackup={() => {
                 setKeyModalMode("backup");
                 setKeyBackupModalOpen(true);

@@ -1,6 +1,17 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { FiArrowLeft, FiX, FiMessageSquare, FiSlash, FiAlertTriangle, FiLock, FiShield } from "react-icons/fi";
+import {
+  FiArrowLeft,
+  FiX,
+  FiMessageSquare,
+  FiSlash,
+  FiAlertTriangle,
+  FiLock,
+  FiShield,
+  FiChevronDown,
+  FiCheck,
+  FiExternalLink,
+} from "react-icons/fi";
 import MessageBubble from "./MessageBubble.jsx";
 import MessageInput from "./MessageInput.jsx";
 import TypingIndicator from "./TypingIndicator.jsx";
@@ -25,15 +36,39 @@ const ChatWindow = ({
   e2eeStatus = { isEncrypted: true, peerHasKey: true, keyChanged: false },
   onOpenKeyBackup,
   otherUser: propOtherUser,
+  peerConversations = [],
+  onSelectProductConversation,
 }) => {
   const { user } = useAuth();
   const { isOnline } = useSocket();
   const [lightboxImage, setLightboxImage] = useState(null);
+  const [productDropdownOpen, setProductDropdownOpen] = useState(false);
+  const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  const mobileDropdownRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const prevMessagesLength = useRef(0);
   const prevConversationId = useRef(conversation?._id);
   const isInitialScrollDone = useRef(false);
   const prevScrollHeightRef = useRef(0);
+
+  // Close product dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setProductDropdownOpen(false);
+      }
+      if (mobileDropdownRef.current && !mobileDropdownRef.current.contains(e.target)) {
+        setMobileDropdownOpen(false);
+      }
+    };
+    if (productDropdownOpen || mobileDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [productDropdownOpen, mobileDropdownOpen]);
 
   const otherUser = propOtherUser || conversation?.participants?.find(
     (p) => (p._id || p.id || p)?.toString() !== (user?._id || user?.id)?.toString() && typeof p === "object" && p !== null
@@ -204,24 +239,115 @@ const ChatWindow = ({
           </div>
         </div>
 
-        {/* Product Context Banner & Moderation Actions */}
+        {/* Product Context Banner / Product Dropdown & Moderation Actions */}
         <div className="chat-header-right">
           {product && (
-            <Link
-              to={`/products/${product._id}`}
-              className="chat-product-banner"
-              title="View product details"
-            >
-              {product.images?.[0] && (
-                <img src={resolveImageUrl(product.images[0])} alt={product.title} />
-              )}
-              <div className="chat-product-meta">
-                <span className="chat-product-title">{product.title}</span>
-                <span className="chat-product-price">
-                  ₹{Number(product.price).toLocaleString("en-IN")}
-                </span>
+            peerConversations && peerConversations.length > 1 ? (
+              <div className="chat-product-dropdown-wrapper" ref={dropdownRef}>
+                <button
+                  type="button"
+                  className={`chat-product-dropdown-trigger ${productDropdownOpen ? "open" : ""}`}
+                  onClick={() => setProductDropdownOpen((prev) => !prev)}
+                  title="Switch between products discussed with this seller"
+                  aria-expanded={productDropdownOpen}
+                >
+                  {product.images?.[0] && (
+                    <img src={resolveImageUrl(product.images[0])} alt={product.title} className="chat-product-thumb" />
+                  )}
+                  <div className="chat-product-meta">
+                    <span className="chat-product-title">{product.title}</span>
+                    <span className="chat-product-price">
+                      ₹{Number(product.price).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <div className="chat-product-switch-badge">
+                    <span>{peerConversations.length} products</span>
+                    <FiChevronDown className={`chevron-icon ${productDropdownOpen ? "rotated" : ""}`} />
+                  </div>
+                </button>
+
+                {productDropdownOpen && (
+                  <div className="chat-product-dropdown-menu">
+                    <div className="chat-product-dropdown-header">
+                      <span>Products with {otherUser?.name || "Seller"}</span>
+                      <Link
+                        to={`/products/${product._id}`}
+                        className="chat-product-view-link"
+                        title="View listing details on store"
+                        onClick={() => setProductDropdownOpen(false)}
+                      >
+                        View Listing <FiExternalLink size={12} />
+                      </Link>
+                    </div>
+
+                    <div className="chat-product-dropdown-list">
+                      {peerConversations.map((c) => {
+                        const itemProduct = c.product;
+                        const isCurrent = (c._id || c.id)?.toString() === (conversation._id || conversation.id)?.toString();
+
+                        if (!itemProduct) return null;
+
+                        return (
+                          <div
+                            key={c._id || c.id}
+                            className={`chat-product-dropdown-item ${isCurrent ? "active-product" : ""}`}
+                            onClick={() => {
+                              if (!isCurrent && onSelectProductConversation) {
+                                onSelectProductConversation(c._id || c.id);
+                              }
+                              setProductDropdownOpen(false);
+                            }}
+                          >
+                            <div className="item-thumb-wrapper">
+                              {itemProduct.images?.[0] ? (
+                                <img
+                                  src={resolveImageUrl(itemProduct.images[0])}
+                                  alt={itemProduct.title}
+                                  className="item-thumb-img"
+                                />
+                              ) : (
+                                <div className="item-thumb-placeholder">📦</div>
+                              )}
+                              {c.unreadCount > 0 && <span className="item-unread-dot" />}
+                            </div>
+
+                            <div className="item-info">
+                              <div className="item-title-row">
+                                <span className="item-title">{itemProduct.title}</span>
+                                {isCurrent && (
+                                  <span className="item-current-tag">
+                                    <FiCheck size={12} /> Active
+                                  </span>
+                                )}
+                              </div>
+                              <span className="item-price">
+                                ₹{Number(itemProduct.price || 0).toLocaleString("en-IN")}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
-            </Link>
+            ) : (
+              <Link
+                to={`/products/${product._id}`}
+                className="chat-product-banner"
+                title="View product details"
+              >
+                {product.images?.[0] && (
+                  <img src={resolveImageUrl(product.images[0])} alt={product.title} />
+                )}
+                <div className="chat-product-meta">
+                  <span className="chat-product-title">{product.title}</span>
+                  <span className="chat-product-price">
+                    ₹{Number(product.price).toLocaleString("en-IN")}
+                  </span>
+                </div>
+              </Link>
+            )
           )}
 
           {/* Keys & Moderation Action Buttons */}
@@ -266,6 +392,89 @@ const ChatWindow = ({
           </div>
         </div>
       </div>
+
+      {/* Mobile-only compact product switcher when multiple products are being discussed */}
+      {product && peerConversations && peerConversations.length > 1 && (
+        <div className="chat-mobile-product-bar" ref={mobileDropdownRef}>
+          <div className="chat-mobile-product-info">
+            <span className="mobile-product-label">Discussing:</span>
+            <span className="mobile-product-name">{product.title}</span>
+            <span className="mobile-product-price">₹{Number(product.price).toLocaleString("en-IN")}</span>
+          </div>
+          <button
+            type="button"
+            className="chat-mobile-switch-btn"
+            onClick={() => setMobileDropdownOpen((prev) => !prev)}
+          >
+            Switch ({peerConversations.length}) <FiChevronDown size={14} className={mobileDropdownOpen ? "rotated" : ""} />
+          </button>
+
+          {mobileDropdownOpen && (
+            <div className="chat-product-dropdown-menu mobile-dropdown-menu">
+              <div className="chat-product-dropdown-header">
+                <span>Products with {otherUser?.name || "Seller"}</span>
+                <Link
+                  to={`/products/${product._id}`}
+                  className="chat-product-view-link"
+                  title="View listing details on store"
+                  onClick={() => setMobileDropdownOpen(false)}
+                >
+                  View Listing <FiExternalLink size={12} />
+                </Link>
+              </div>
+
+              <div className="chat-product-dropdown-list">
+                {peerConversations.map((c) => {
+                  const itemProduct = c.product;
+                  const isCurrent = (c._id || c.id)?.toString() === (conversation._id || conversation.id)?.toString();
+
+                  if (!itemProduct) return null;
+
+                  return (
+                    <div
+                      key={c._id || c.id}
+                      className={`chat-product-dropdown-item ${isCurrent ? "active-product" : ""}`}
+                      onClick={() => {
+                        if (!isCurrent && onSelectProductConversation) {
+                          onSelectProductConversation(c._id || c.id);
+                        }
+                        setMobileDropdownOpen(false);
+                      }}
+                    >
+                      <div className="item-thumb-wrapper">
+                        {itemProduct.images?.[0] ? (
+                          <img
+                            src={resolveImageUrl(itemProduct.images[0])}
+                            alt={itemProduct.title}
+                            className="item-thumb-img"
+                          />
+                        ) : (
+                          <div className="item-thumb-placeholder">📦</div>
+                        )}
+                        {c.unreadCount > 0 && <span className="item-unread-dot" />}
+                      </div>
+
+                      <div className="item-info">
+                        <div className="item-title-row">
+                          <span className="item-title">{itemProduct.title}</span>
+                          {isCurrent && (
+                            <span className="item-current-tag">
+                              <FiCheck size={12} /> Active
+                            </span>
+                          )}
+                        </div>
+                        <span className="item-price">
+                          ₹{Number(itemProduct.price || 0).toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Key Changed Security Warning Banner */}
       {e2eeStatus?.keyChanged && (

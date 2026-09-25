@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { FiShield, FiAlertTriangle } from "react-icons/fi";
+import { FiShield, FiAlertTriangle, FiEye, FiEyeOff } from "react-icons/fi";
 import MainLayout from "../layouts/MainLayout.jsx";
 import Button from "../components/Button.jsx";
 import { resetPassword } from "../services/authService.js";
@@ -17,6 +17,8 @@ const ResetPassword = () => {
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Real-time strength checks
@@ -117,16 +119,41 @@ const ResetPassword = () => {
               <label className="form-label" htmlFor="password">
                 New Password
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                className="form-input"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  className="form-input"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  style={{ paddingRight: "42px", width: "100%" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  style={{
+                    position: "absolute",
+                    right: "12px",
+                    background: "none",
+                    border: "none",
+                    color: "var(--color-text-muted)",
+                    cursor: "pointer",
+                    padding: "4px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "1.15rem",
+                    zIndex: 2,
+                  }}
+                  title={showPassword ? "Hide password" : "Show password"}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <FiEyeOff /> : <FiEye />}
+                </button>
+              </div>
             </div>
 
             {/* Password security criteria checklist */}
@@ -161,16 +188,41 @@ const ResetPassword = () => {
               <label className="form-label" htmlFor="confirmPassword">
                 Confirm New Password
               </label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                className="form-input"
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  className="form-input"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  style={{ paddingRight: "42px", width: "100%" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
+                  style={{
+                    position: "absolute",
+                    right: "12px",
+                    background: "none",
+                    border: "none",
+                    color: "var(--color-text-muted)",
+                    cursor: "pointer",
+                    padding: "4px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "1.15rem",
+                    zIndex: 2,
+                  }}
+                  title={showConfirmPassword ? "Hide password" : "Show password"}
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? <FiEyeOff /> : <FiEye />}
+                </button>
+              </div>
             </div>
 
             <Button type="submit" variant="primary" block loading={loading} disabled={!isStrong}>

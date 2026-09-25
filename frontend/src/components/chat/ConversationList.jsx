@@ -40,14 +40,54 @@ const ConversationList = ({
     return raw ? { _id: raw.toString(), name: "Student" } : null;
   };
 
-  const filteredConversations = useMemo(() => {
-    if (!search.trim()) return conversations;
+  // Group conversations by contact/seller so each contact only appears ONCE in sidebar
+  const groupedContacts = useMemo(() => {
+    const map = new Map();
+
+    conversations.forEach((conv) => {
+      const other = getOtherParticipant(conv);
+      const otherId = (other?._id || other?.id || "unknown").toString();
+
+      if (!map.has(otherId)) {
+        map.set(otherId, {
+          otherUser: other,
+          conversations: [],
+          totalUnreadCount: 0,
+          latestMessageAt: conv.lastMessageAt || conv.updatedAt || conv.createdAt,
+          latestSnippet: conv.lastMessageContent || "Started a conversation",
+        });
+      }
+
+      const entry = map.get(otherId);
+      entry.conversations.push(conv);
+      entry.totalUnreadCount += conv.unreadCount || 0;
+
+      // Keep latest message info
+      const entryTime = new Date(entry.latestMessageAt || 0).getTime();
+      const convTime = new Date(conv.lastMessageAt || conv.updatedAt || conv.createdAt || 0).getTime();
+      if (convTime >= entryTime) {
+        entry.latestMessageAt = conv.lastMessageAt || conv.updatedAt || conv.createdAt;
+        entry.latestSnippet = conv.lastMessageContent || "Started a conversation";
+      }
+    });
+
+    // Sort contacts by latest activity descending
+    const list = Array.from(map.values()).sort((a, b) => {
+      const timeA = new Date(a.latestMessageAt || 0).getTime();
+      const timeB = new Date(b.latestMessageAt || 0).getTime();
+      return timeB - timeA;
+    });
+
+    if (!search.trim()) return list;
+
     const term = search.toLowerCase();
-    return conversations.filter((c) => {
-      const otherUser = getOtherParticipant(c);
-      const userName = otherUser?.name?.toLowerCase() || "";
-      const productTitle = c.product?.title?.toLowerCase() || "";
-      return userName.includes(term) || productTitle.includes(term);
+    return list.filter((item) => {
+      const userName = item.otherUser?.name?.toLowerCase() || "";
+      const matchesName = userName.includes(term);
+      const matchesProduct = item.conversations.some((c) =>
+        c.product?.title?.toLowerCase().includes(term)
+      );
+      return matchesName || matchesProduct;
     });
   }, [conversations, search, currentUserId]);
 
@@ -65,21 +105,35 @@ const ConversationList = ({
       </div>
 
       <ul className="conversation-list">
-        {filteredConversations.length === 0 ? (
+        {groupedContacts.length === 0 ? (
           <li style={{ padding: "2rem 1rem", textAlign: "center", color: "var(--color-text-muted)" }}>
             {conversations.length === 0 ? "No conversations yet" : "No matches found"}
           </li>
         ) : (
-          filteredConversations.map((conv) => {
-            const otherUser = getOtherParticipant(conv);
+          groupedContacts.map((contact) => {
+            const otherUser = contact.otherUser;
             const userIsOnline = isOnline(otherUser?._id);
-            const isActive = conv._id === activeId;
+            const isTabActive = contact.conversations.some((c) => c._id === activeId);
+
+            // Active or latest conversation in this group
+            const currentConv = contact.conversations.find((c) => c._id === activeId) || contact.conversations[0];
+            const currentProduct = currentConv?.product;
+            const hasMultipleProducts = contact.conversations.length > 1;
 
             return (
               <li
-                key={conv._id}
-                className={`conversation-item ${isActive ? "active" : ""}`}
-                onClick={() => onSelectConversation(conv._id)}
+                key={otherUser?._id || currentConv._id}
+                className={`conversation-item ${isTabActive ? "active" : ""}`}
+                onClick={() => {
+                  if (isTabActive) return;
+                  // Select the active conversation if one was selected, or the most recent
+                  const sorted = [...contact.conversations].sort((a, b) => {
+                    const tA = new Date(a.lastMessageAt || a.updatedAt || 0).getTime();
+                    const tB = new Date(b.lastMessageAt || b.updatedAt || 0).getTime();
+                    return tB - tA;
+                  });
+                  onSelectConversation(sorted[0]._id);
+                }}
               >
                 <div className="avatar-wrapper">
                   {otherUser?.profileImage ? (
@@ -100,22 +154,40 @@ const ConversationList = ({
                   <div className="conversation-top-row">
                     <span className="conversation-user-name">{otherUser?.name || "Student"}</span>
                     <span className="conversation-time">
-                      {formatConversationTime(conv.lastMessageAt || conv.updatedAt)}
+                      {formatConversationTime(contact.latestMessageAt)}
                     </span>
                   </div>
 
-                  {conv.product && (
-                    <div className="conversation-product-tag">
-                      📌 {conv.product.title}
+                  {currentProduct && (
+                    <div className="conversation-product-tag" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        📌 {currentProduct.title}
+                      </span>
+                      {hasMultipleProducts && (
+                        <span
+                          style={{
+                            fontSize: "0.68rem",
+                            background: "var(--color-paper-subtle)",
+                            color: "var(--color-brand-accent)",
+                            padding: "1px 5px",
+                            borderRadius: "10px",
+                            fontWeight: 600,
+                            flexShrink: 0,
+                            border: "1px solid var(--color-border)",
+                          }}
+                        >
+                          +{contact.conversations.length - 1} more
+                        </span>
+                      )}
                     </div>
                   )}
 
                   <div className="conversation-snippet-row">
                     <p className="conversation-snippet">
-                      {conv.lastMessageContent || "Started a conversation"}
+                      {contact.latestSnippet}
                     </p>
-                    {conv.unreadCount > 0 && (
-                      <span className="unread-badge">{conv.unreadCount}</span>
+                    {contact.totalUnreadCount > 0 && (
+                      <span className="unread-badge">{contact.totalUnreadCount}</span>
                     )}
                   </div>
                 </div>

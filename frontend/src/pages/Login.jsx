@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 import toast from "react-hot-toast";
 import MainLayout from "../layouts/MainLayout.jsx";
 import Button from "../components/Button.jsx";
@@ -10,6 +11,7 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [form, setForm] = useState({ email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -60,16 +62,41 @@ const Login = () => {
                   Forgot password?
                 </Link>
               </div>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                className="form-input"
-                placeholder="••••••••"
-                value={form.password}
-                onChange={handleChange}
-                required
-              />
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  className="form-input"
+                  placeholder="••••••••"
+                  value={form.password}
+                  onChange={handleChange}
+                  required
+                  style={{ paddingRight: "42px", width: "100%" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  style={{
+                    position: "absolute",
+                    right: "12px",
+                    background: "none",
+                    border: "none",
+                    color: "var(--color-text-muted)",
+                    cursor: "pointer",
+                    padding: "4px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "1.15rem",
+                    zIndex: 2,
+                  }}
+                  title={showPassword ? "Hide password" : "Show password"}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <FiEyeOff /> : <FiEye />}
+                </button>
+              </div>
             </div>
 
             <Button type="submit" variant="primary" block loading={loading}>
