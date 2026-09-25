@@ -158,12 +158,16 @@
 }
 
 .conversation-user-name {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.96rem;
+  letter-spacing: -0.015em;
+  text-transform: capitalize;
   color: var(--color-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  -webkit-font-smoothing: antialiased;
 }
 
 .conversation-time {
@@ -174,13 +178,15 @@
 }
 
 .conversation-product-tag {
-  font-size: 0.75rem;
-  font-family: var(--font-mono);
-  color: var(--color-sage);
+  font-size: 0.76rem;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  color: var(--color-brand-accent, #2997FF);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   margin-bottom: 0.2rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .conversation-snippet-row {
@@ -259,9 +265,13 @@
 
 .chat-header-user-info h3 {
   margin: 0;
-  font-size: 1rem;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 1.05rem;
   font-weight: 600;
+  letter-spacing: -0.018em;
+  text-transform: capitalize;
   color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
 }
 
 .chat-header-status {

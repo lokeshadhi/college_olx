@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { FiTag } from "react-icons/fi";
 import { useAuth } from "../../hooks/useAuth.js";
 import { useSocket } from "../../hooks/useSocket.js";
 import { resolveImageUrl } from "../../utils/constants.js";
@@ -160,8 +161,8 @@ const ConversationList = ({
 
                   {currentProduct && (
                     <div className="conversation-product-tag" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        📌 {currentProduct.title}
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <FiTag size={11} style={{ flexShrink: 0, opacity: 0.9 }} /> {currentProduct.title}
                       </span>
                       {hasMultipleProducts && (
                         <span
