@@ -45,6 +45,10 @@ const formatDateDivider = (dateStr) => {
 const ChatWindow = ({
   conversation,
   messages = [],
+  messagesLoading = false,
+  messagesError = null,
+  displayedConversationId = null,
+  onRetryLoad,
   onSendMessage,
   onTyping,
   isOtherTyping = false,
@@ -74,6 +78,10 @@ const ChatWindow = ({
   const prevConversationId = useRef(conversation?._id);
   const isInitialScrollDone = useRef(false);
   const prevScrollHeightRef = useRef(0);
+
+  const windowConvId = (conversation?._id || conversation?.id)?.toString();
+  const isMatchingConversation = Boolean(windowConvId && displayedConversationId && windowConvId === displayedConversationId);
+  const showLoadingSkeleton = messagesLoading || !isMatchingConversation;
 
   // Close product dropdown on click outside
   useEffect(() => {
@@ -136,7 +144,7 @@ const ChatWindow = ({
       return;
     }
 
-    if (!isInitialScrollDone.current && messages.length > 0) {
+    if (!isInitialScrollDone.current && messages.length > 0 && !showLoadingSkeleton) {
       // First load of messages for this conversation: jump to bottom instantly
       isInitialScrollDone.current = true;
       requestAnimationFrame(() => scrollToBottom("auto"));
@@ -148,7 +156,7 @@ const ChatWindow = ({
         clearTimeout(t2);
         clearTimeout(t3);
       };
-    } else if (messages.length > prevMessagesLength.current) {
+    } else if (messages.length > prevMessagesLength.current && !showLoadingSkeleton) {
       // New message appended: smooth scroll to bottom if user is already near bottom
       const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 250;
       if (isNearBottom) {
@@ -157,7 +165,7 @@ const ChatWindow = ({
     }
 
     prevMessagesLength.current = messages.length;
-  }, [messages.length, loadingMore]);
+  }, [messages.length, loadingMore, showLoadingSkeleton]);
 
   // Ensure scroll stays pinned to bottom when security warning banner or typing indicator appears
   useEffect(() => {
@@ -522,37 +530,80 @@ const ChatWindow = ({
 
       {/* Messages Scroll View */}
       <div className="messages-container" ref={messagesContainerRef}>
-        {hasMore && (
-          <button
-            className="messages-load-more"
-            onClick={handleOlderLoadClick}
-            disabled={loadingMore}
-          >
-            {loadingMore ? "Loading older messages..." : "↑ Load older messages"}
-          </button>
+        {showLoadingSkeleton ? (
+          <div className="messages-loading-state" aria-label="Loading conversation messages">
+            <div className="message-skeleton received">
+              <div className="skeleton-bubble short" />
+            </div>
+            <div className="message-skeleton sent">
+              <div className="skeleton-bubble medium" />
+            </div>
+            <div className="message-skeleton received">
+              <div className="skeleton-bubble long" />
+            </div>
+            <div className="message-skeleton sent">
+              <div className="skeleton-bubble short" />
+            </div>
+            <div className="message-skeleton received">
+              <div className="skeleton-bubble medium" />
+            </div>
+          </div>
+        ) : messagesError ? (
+          <div className="messages-error-state">
+            <FiAlertTriangle size={28} style={{ color: "var(--color-danger, #FF453A)" }} />
+            <p style={{ margin: "4px 0 10px", fontSize: "0.88rem" }}>{messagesError}</p>
+            {onRetryLoad && (
+              <button type="button" onClick={onRetryLoad} className="btn-retry-chat">
+                Retry Loading
+              </button>
+            )}
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="messages-empty-state">
+            <div className="messages-empty-bubble">
+              <FiLock size={22} className="empty-bubble-icon" />
+              <h4>End-to-End Encrypted</h4>
+              <p>
+                Messages and photos are secured with end-to-end encryption.
+                Send a message to start chatting with {otherUser?.name || "this student"}.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {hasMore && (
+              <button
+                className="messages-load-more"
+                onClick={handleOlderLoadClick}
+                disabled={loadingMore}
+              >
+                {loadingMore ? "Loading older messages..." : "↑ Load older messages"}
+              </button>
+            )}
+
+            {messages.map((msg, index) => {
+              const prevMsg = index > 0 ? messages[index - 1] : null;
+              const msgDate = msg.createdAt ? new Date(msg.createdAt).toDateString() : "";
+              const prevDate = prevMsg?.createdAt ? new Date(prevMsg.createdAt).toDateString() : "";
+              const showDateDivider = msgDate && msgDate !== prevDate;
+
+              return (
+                <Fragment key={msg._id || index}>
+                  {showDateDivider && (
+                    <div className="chat-date-divider">
+                      <span>{formatDateDivider(msg.createdAt)}</span>
+                    </div>
+                  )}
+                  <MessageBubble
+                    message={msg}
+                    currentUserId={user?._id}
+                    onImageClick={(url) => setLightboxImage(url)}
+                  />
+                </Fragment>
+              );
+            })}
+          </>
         )}
-
-        {messages.map((msg, index) => {
-          const prevMsg = index > 0 ? messages[index - 1] : null;
-          const msgDate = msg.createdAt ? new Date(msg.createdAt).toDateString() : "";
-          const prevDate = prevMsg?.createdAt ? new Date(prevMsg.createdAt).toDateString() : "";
-          const showDateDivider = msgDate && msgDate !== prevDate;
-
-          return (
-            <Fragment key={msg._id || index}>
-              {showDateDivider && (
-                <div className="chat-date-divider">
-                  <span>{formatDateDivider(msg.createdAt)}</span>
-                </div>
-              )}
-              <MessageBubble
-                message={msg}
-                currentUserId={user?._id}
-                onImageClick={(url) => setLightboxImage(url)}
-              />
-            </Fragment>
-          );
-        })}
 
         {isOtherTyping && <TypingIndicator userName={otherUser?.name || "User"} />}
       </div>

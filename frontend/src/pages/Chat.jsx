@@ -30,6 +30,15 @@ const Chat = () => {
   const [blockStatus, setBlockStatus] = useState({ isBlocked: false, blockedByMe: false, blockedByUser: false });
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [keyStatusModalOpen, setKeyStatusModalOpen] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [messagesError, setMessagesError] = useState(null);
+  const [displayedConversationId, setDisplayedConversationId] = useState(null);
+
+  // Per-conversation message cache: convId -> { messages, hasMore, page, timestamp }
+  const messagesCacheRef = useRef(new Map());
+  // Active request tracking to eliminate race conditions
+  const currentRequestRef = useRef({ conversationId: null, requestId: 0 });
+
   const [peerE2eeInfo, setPeerE2eeInfo] = useState({
     isEncrypted: false,
     peerHasKey: false,
@@ -214,10 +223,17 @@ const Chat = () => {
 
   // Load active conversation details, messages, and block relationship
   const loadActiveConversation = useCallback(
-    async (convId, pageNum = 1) => {
+    async (convId, pageNum = 1, requestId = currentRequestRef.current.requestId) => {
       try {
         if (pageNum === 1) {
           const convRes = await chatService.getConversationById(convId);
+          // Discard if user switched conversation during conversation fetch
+          if (
+            currentRequestRef.current.conversationId !== convId ||
+            currentRequestRef.current.requestId !== requestId
+          ) {
+            return;
+          }
           if (convRes.success) {
             setActiveConversation(convRes.data);
           }
@@ -225,7 +241,11 @@ const Chat = () => {
           chatService
             .getConversationBlockStatus(convId)
             .then((res) => {
-              if (res?.success) {
+              if (
+                currentRequestRef.current.conversationId === convId &&
+                currentRequestRef.current.requestId === requestId &&
+                res?.success
+              ) {
                 setBlockStatus(res.data);
               }
             })
@@ -233,6 +253,14 @@ const Chat = () => {
         }
 
         const msgRes = await chatService.getMessages(convId, pageNum, 30);
+        // Discard if user switched conversation during messages fetch
+        if (
+          currentRequestRef.current.conversationId !== convId ||
+          currentRequestRef.current.requestId !== requestId
+        ) {
+          return;
+        }
+
         if (msgRes.success) {
           const rawMessages = msgRes.data.messages || [];
           const myId = (user?._id || user?.id || "").toString();
@@ -249,60 +277,143 @@ const Chat = () => {
             })
           );
 
+          // Discard if user switched conversation during decryption
+          if (
+            currentRequestRef.current.conversationId !== convId ||
+            currentRequestRef.current.requestId !== requestId
+          ) {
+            return;
+          }
+
           if (pageNum === 1) {
             setMessages(decryptedMessages);
+            setDisplayedConversationId(convId);
+            setPage(1);
+            setHasMore(msgRes.data.totalPages > 1);
+            setMessagesLoading(false);
+            setMessagesError(null);
+
+            // Update in-memory cache for this conversation
+            messagesCacheRef.current.set(convId, {
+              messages: decryptedMessages,
+              hasMore: msgRes.data.totalPages > 1,
+              page: 1,
+              timestamp: Date.now(),
+            });
           } else {
-            setMessages((prev) => [...decryptedMessages, ...prev]);
+            setMessages((prev) => {
+              const combined = [...decryptedMessages, ...prev];
+              // Update cache with prepended messages
+              messagesCacheRef.current.set(convId, {
+                messages: combined,
+                hasMore: pageNum < msgRes.data.totalPages,
+                page: pageNum,
+                timestamp: Date.now(),
+              });
+              return combined;
+            });
+            setPage(pageNum);
+            setHasMore(pageNum < msgRes.data.totalPages);
           }
-          setPage(pageNum);
-          setHasMore(pageNum < msgRes.data.totalPages);
         }
 
         // Mark messages as read locally and on server
-        await chatService.markMessagesAsRead(convId).catch(() => {});
-        if (socket && isConnected) {
-          socket.emit("message_read", { conversationId: convId });
-        }
-        if (fetchUnreadCount) {
-          fetchUnreadCount();
-        }
+        if (
+          currentRequestRef.current.conversationId === convId &&
+          currentRequestRef.current.requestId === requestId
+        ) {
+          await chatService.markMessagesAsRead(convId).catch(() => {});
+          if (socket && isConnected) {
+            socket.emit("message_read", { conversationId: convId });
+          }
+          if (fetchUnreadCount) {
+            fetchUnreadCount();
+          }
 
-        // Reset unread count for this conversation in the sidebar list
-        setConversations((prev) =>
-          prev.map((c) => (c._id === convId ? { ...c, unreadCount: 0 } : c))
-        );
+          // Reset unread count for this conversation in the sidebar list
+          setConversations((prev) =>
+            prev.map((c) => (c._id === convId ? { ...c, unreadCount: 0 } : c))
+          );
+        }
       } catch (error) {
-        toast.error("Failed to load chat messages");
+        if (
+          currentRequestRef.current.conversationId === convId &&
+          currentRequestRef.current.requestId === requestId
+        ) {
+          setMessagesLoading(false);
+          setMessagesError("Failed to load chat messages. Please try again.");
+          toast.error("Failed to load chat messages");
+        }
       }
     },
     [socket, isConnected, fetchUnreadCount, user?._id, user?.id]
   );
 
-  // Sync route param with active conversation and global socket context
+  // On desktop, auto-open the first conversation if none selected in URL
   useEffect(() => {
-    if (conversationId) {
-      if (setGlobalActiveConversation) {
-        setGlobalActiveConversation(conversationId);
-      }
-      loadActiveConversation(conversationId, 1);
-    } else if (conversations.length > 0 && window.innerWidth > 768) {
-      // On desktop, auto-open the first conversation if none selected in URL
+    if (!conversationId && conversations.length > 0 && typeof window !== "undefined" && window.innerWidth > 768) {
       navigate(`/chat/${conversations[0]._id}`, { replace: true });
-    } else {
+    }
+  }, [conversationId, conversations, navigate]);
+
+  // Sync route param with active conversation, cache, and initiate fetch
+  useEffect(() => {
+    if (!conversationId) {
+      currentRequestRef.current = {
+        conversationId: null,
+        requestId: currentRequestRef.current.requestId + 1,
+      };
       setActiveConversation(null);
       setMessages([]);
+      setDisplayedConversationId(null);
+      setMessagesLoading(false);
+      setMessagesError(null);
       setBlockStatus({ isBlocked: false, blockedByMe: false, blockedByUser: false });
       if (setGlobalActiveConversation) {
         setGlobalActiveConversation(null);
       }
+      return;
     }
 
+    if (setGlobalActiveConversation) {
+      setGlobalActiveConversation(conversationId);
+    }
+
+    // 1. Invalidate any in-flight requests from earlier conversations
+    const requestId = ++currentRequestRef.current.requestId;
+    currentRequestRef.current.conversationId = conversationId;
+
+    // 2. Immediately update selected conversation header preview from sidebar list
+    const foundInList = conversations.find(
+      (c) => (c._id || c.id)?.toString() === conversationId
+    ) || null;
+    setActiveConversation(foundInList);
+
+    // 3. Immediately clear or populate messages from cache
+    const cached = messagesCacheRef.current.get(conversationId);
+    if (cached && Array.isArray(cached.messages)) {
+      setMessages(cached.messages);
+      setDisplayedConversationId(conversationId);
+      setMessagesLoading(false);
+      setHasMore(Boolean(cached.hasMore));
+      setPage(cached.page || 1);
+    } else {
+      // Clear previous conversation messages immediately & show loading skeleton
+      setMessages([]);
+      setDisplayedConversationId(conversationId);
+      setMessagesLoading(true);
+      setHasMore(false);
+      setPage(1);
+    }
+    setMessagesError(null);
+
+    // 4. Fetch fresh conversation details and messages
+    loadActiveConversation(conversationId, 1, requestId);
+
     return () => {
-      if (setGlobalActiveConversation) {
-        setGlobalActiveConversation(null);
-      }
+      // Invalidation handled via requestId
     };
-  }, [conversationId, conversations.length, loadActiveConversation, navigate, setGlobalActiveConversation]);
+  }, [conversationId, conversations, loadActiveConversation, setGlobalActiveConversation]);
 
   // Socket room management and real-time listeners
   useEffect(() => {
@@ -476,6 +587,16 @@ const Chat = () => {
             try {
               const res = await chatService.sendMessage(conversationId, payload);
               const formatted = await formatReturnedMessage(res.data);
+              if (currentRequestRef.current.conversationId === conversationId) {
+                setMessages((prev) => [...prev, formatted]);
+              }
+              const cached = messagesCacheRef.current.get(conversationId);
+              if (cached && Array.isArray(cached.messages)) {
+                messagesCacheRef.current.set(conversationId, {
+                  ...cached,
+                  messages: [...cached.messages, formatted],
+                });
+              }
               resolve(formatted);
             } catch (err) {
               reject(err);
@@ -487,7 +608,16 @@ const Chat = () => {
       // Fallback: send via REST
       const res = await chatService.sendMessage(conversationId, payload);
       const formatted = await formatReturnedMessage(res.data);
-      setMessages((prev) => [...prev, formatted]);
+      if (currentRequestRef.current.conversationId === conversationId) {
+        setMessages((prev) => [...prev, formatted]);
+      }
+      const cached = messagesCacheRef.current.get(conversationId);
+      if (cached && Array.isArray(cached.messages)) {
+        messagesCacheRef.current.set(conversationId, {
+          ...cached,
+          messages: [...cached.messages, formatted],
+        });
+      }
       return formatted;
     }
   };
@@ -508,13 +638,14 @@ const Chat = () => {
     if (loadingMore || !hasMore || !conversationId) return;
     setLoadingMore(true);
     try {
-      await loadActiveConversation(conversationId, page + 1);
+      await loadActiveConversation(conversationId, page + 1, currentRequestRef.current.requestId);
     } finally {
       setLoadingMore(false);
     }
   };
 
   const handleSelectConversation = (id) => {
+    if (!id || id === conversationId) return;
     navigate(`/chat/${id}`);
   };
 
@@ -589,6 +720,10 @@ const Chat = () => {
               key={conversationId || (activeConversation?._id || activeConversation?.id) || "empty"}
               conversation={activeConversation || conversations.find((c) => (c._id || c.id)?.toString() === conversationId)}
               messages={messages}
+              messagesLoading={messagesLoading}
+              messagesError={messagesError}
+              displayedConversationId={displayedConversationId}
+              onRetryLoad={() => loadActiveConversation(conversationId, 1, currentRequestRef.current.requestId)}
               onSendMessage={handleSendMessage}
               onTyping={handleTyping}
               isOtherTyping={isOtherTyping}
