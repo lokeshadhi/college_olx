@@ -38,6 +38,10 @@ const Chat = () => {
   const messagesCacheRef = useRef(new Map());
   // Active request tracking to eliminate race conditions
   const currentRequestRef = useRef({ conversationId: null, requestId: 0 });
+  const [needsKeyUnlock, setNeedsKeyUnlock] = useState(false);
+  const [unlockPassword, setUnlockPassword] = useState("");
+  const [unlockLoading, setUnlockLoading] = useState(false);
+  const [unlockError, setUnlockError] = useState("");
 
   const [peerE2eeInfo, setPeerE2eeInfo] = useState({
     isEncrypted: false,
@@ -47,6 +51,64 @@ const Chat = () => {
   });
 
   const currentUserId = (user?._id || user?.id || "").toString();
+
+  // Initialize E2EE cryptographic identity for logged-in user from local IndexedDB
+  useEffect(() => {
+    if (!user?._id) return;
+    let isMounted = true;
+
+    e2eeService
+      .initUserKeys(user)
+      .then((res) => {
+        if (!isMounted) return;
+        if (res?.status === "needs_password_recovery") {
+          setNeedsKeyUnlock(true);
+        } else if (res?.status === "ready") {
+          setNeedsKeyUnlock(false);
+        } else if (res?.status === "missing_local_keys") {
+          console.info("E2EE: Keys not present in local storage. Log in to restore keys.");
+        }
+      })
+      .catch((err) => {
+        console.error("E2EE key initialization error:", err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
+
+  // Handler to unlock private key on new devices using account login password
+  const handleUnlockKeys = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!unlockPassword.trim()) return;
+    setUnlockLoading(true);
+    setUnlockError("");
+    try {
+      const res = await e2eeService.unlockWithPassword(unlockPassword.trim());
+      if (res?.success) {
+        toast.success("Messages decrypted successfully!");
+        setNeedsKeyUnlock(false);
+        setUnlockPassword("");
+        if (conversationId) {
+          const reqId = ++currentRequestRef.current.requestId;
+          currentRequestRef.current.conversationId = conversationId;
+          messagesCacheRef.current.delete(conversationId);
+          loadActiveConversation(conversationId, 1, reqId);
+        }
+      } else {
+        setUnlockError(res?.error || "Incorrect account password. Please try again.");
+      }
+    } catch (err) {
+      setUnlockError(err.message || "Failed to unlock encryption keys");
+    } finally {
+      setUnlockLoading(false);
+    }
+  };
+
+  const hasUndecryptedMessages = useMemo(() => {
+    return messages.some((m) => m.decryptionError === "NO_PRIVATE_KEY");
+  }, [messages]);
 
   // Robustly extract other participant from activeConversation, sidebar list, or product
   const otherUser = useMemo(() => {
@@ -143,28 +205,6 @@ const Chat = () => {
       document.documentElement.style.removeProperty("--chat-viewport-height");
     };
   }, []);
-
-  // Initialize E2EE cryptographic identity for logged-in user from local IndexedDB
-  useEffect(() => {
-    if (!user?._id) return;
-    let isMounted = true;
-
-    e2eeService
-      .initUserKeys(user)
-      .then((res) => {
-        if (!isMounted) return;
-        if (res?.status === "missing_local_keys") {
-          console.info("E2EE: Keys not present in local storage. Log in to restore keys.");
-        }
-      })
-      .catch((err) => {
-        console.error("E2EE key initialization error:", err);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user]);
 
   // Check recipient E2EE key status and fingerprint
   useEffect(() => {
@@ -734,6 +774,44 @@ const Chat = () => {
 
           {/* Active Chat Window */}
           <div className={`chat-main-wrapper ${!conversationId ? "mobile-hidden" : ""}`}>
+            {hasUndecryptedMessages && !needsKeyUnlock && (
+              <div
+                style={{
+                  background: "#fffbeb",
+                  borderBottom: "1px solid #fef3c7",
+                  padding: "0.6rem 1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  fontSize: "0.85rem",
+                  color: "#92400e",
+                  zIndex: 5,
+                  flexShrink: 0,
+                }}
+              >
+                <span>
+                  🔒 Messages are encrypted with your account key. Enter your password to decrypt on this device.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setNeedsKeyUnlock(true)}
+                  style={{
+                    background: "#f59e0b",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "6px",
+                    padding: "0.3rem 0.75rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontSize: "0.8rem",
+                    marginLeft: "0.75rem",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Unlock
+                </button>
+              </div>
+            )}
             <ChatWindow
               key={conversationId || (activeConversation?._id || activeConversation?.id) || "empty"}
               conversation={activeConversation || conversations.find((c) => (c._id || c.id)?.toString() === conversationId)}
@@ -779,6 +857,67 @@ const Chat = () => {
         onClose={() => setKeyStatusModalOpen(false)}
         user={user}
       />
+
+      {/* Device Key Unlock Modal for when IndexedDB keys are missing on new browser/device */}
+      {needsKeyUnlock && (
+        <div className="modal-backdrop" style={{ zIndex: 1100 }}>
+          <div className="modal-content key-backup-modal" style={{ maxWidth: 440, padding: "2rem" }}>
+            <div style={{ textAlign: "center", marginBottom: "1.25rem" }}>
+              <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>🔒</div>
+              <h2 style={{ fontSize: "1.3rem", fontWeight: 700, margin: "0 0 0.5rem 0" }}>Unlock Encrypted Messages</h2>
+              <p style={{ fontSize: "0.88rem", color: "#64748b", margin: 0, lineHeight: 1.5 }}>
+                Your private encryption key is stored securely in an encrypted backup on the server. Enter your account login password to unlock and decrypt your messages on this device.
+              </p>
+            </div>
+
+            <form onSubmit={handleUnlockKeys} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div>
+                <input
+                  type="password"
+                  placeholder="Enter your account password"
+                  value={unlockPassword}
+                  onChange={(e) => setUnlockPassword(e.target.value)}
+                  disabled={unlockLoading}
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem 1rem",
+                    borderRadius: "8px",
+                    border: "1px solid #cbd5e1",
+                    fontSize: "0.95rem",
+                    boxSizing: "border-box",
+                  }}
+                  autoFocus
+                />
+                {unlockError && (
+                  <p style={{ color: "#ef4444", fontSize: "0.82rem", marginTop: "0.4rem", margin: "0.4rem 0 0 0" }}>
+                    {unlockError}
+                  </p>
+                )}
+              </div>
+
+              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => setNeedsKeyUnlock(false)}
+                  className="btn btn-secondary"
+                  disabled={unlockLoading}
+                  style={{ padding: "0.6rem 1.1rem" }}
+                >
+                  Dismiss
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={unlockLoading || !unlockPassword.trim()}
+                  style={{ padding: "0.6rem 1.3rem" }}
+                >
+                  {unlockLoading ? "Decrypting..." : "Unlock Messages"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </MainLayout>
   );
 };

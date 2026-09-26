@@ -304,12 +304,32 @@ export const deriveKekFromPassphrase = async (passphrase, salt, iterations = 150
 };
 
 /**
+ * Cryptographically verifies that a private key matches a registered public key
+ * by performing a test RSA-OAEP session key wrap and unwrap.
+ * @param {CryptoKey} privateKey
+ * @param {CryptoKey} publicKey
+ * @returns {Promise<boolean>}
+ */
+export const verifyKeyPairMatch = async (privateKey, publicKey) => {
+  try {
+    const testKey = await generateMessageKey();
+    const wrapped = await wrapKeyWithRsa(testKey, publicKey);
+    const unwrapped = await unwrapKeyWithRsa(wrapped, privateKey);
+    return !!unwrapped;
+  } catch (err) {
+    return false;
+  }
+};
+
+/**
  * Creates an encrypted backup payload of an RSA private key using a user passphrase
+ * and context-bound AAD (campusx:e2ee:key-backup:v1:${userId}).
  * @param {CryptoKey} privateKey
  * @param {string} passphrase
- * @returns {Promise<{ ciphertext: string, iv: string, salt: string, iterations: number }>}
+ * @param {string} [userId=""]
+ * @returns {Promise<{ version: number, ciphertext: string, iv: string, salt: string, iterations: number }>}
  */
-export const createPassphraseBackup = async (privateKey, passphrase) => {
+export const createPassphraseBackup = async (privateKey, passphrase, userId = "") => {
   if (!passphrase || typeof passphrase !== "string" || passphrase.trim().length === 0) {
     throw new Error("Password must not be empty");
   }
@@ -326,11 +346,15 @@ export const createPassphraseBackup = async (privateKey, passphrase) => {
   // 3. Export private key as PKCS#8
   const pkcs8Buffer = await window.crypto.subtle.exportKey("pkcs8", privateKey);
 
-  // 4. Encrypt PKCS#8 buffer with AES-GCM
+  // 4. Encrypt PKCS#8 buffer with AES-GCM and user-bound AAD
+  const encoder = new TextEncoder();
+  const aad = encoder.encode(`campusx:e2ee:key-backup:v1:${userId || ""}`);
+
   const ciphertextBuffer = await window.crypto.subtle.encrypt(
     {
       name: "AES-GCM",
       iv,
+      additionalData: aad,
       tagLength: 128,
     },
     kek,
@@ -338,6 +362,7 @@ export const createPassphraseBackup = async (privateKey, passphrase) => {
   );
 
   return {
+    version: 1,
     ciphertext: bufferToBase64(ciphertextBuffer),
     iv: bufferToBase64(iv),
     salt: bufferToBase64(salt),
@@ -347,11 +372,13 @@ export const createPassphraseBackup = async (privateKey, passphrase) => {
 
 /**
  * Restores an RSA private key from an encrypted passphrase backup payload
- * @param {{ ciphertext: string, iv: string, salt: string, iterations?: number }} backupPayload
+ * supports context-bound AAD with fallback to non-AAD legacy backups.
+ * @param {{ ciphertext: string, iv: string, salt: string, iterations?: number, version?: number }} backupPayload
  * @param {string} passphrase
+ * @param {string} [userId=""]
  * @returns {Promise<CryptoKey>} Restored RSA-OAEP private key
  */
-export const restorePassphraseBackup = async (backupPayload, passphrase) => {
+export const restorePassphraseBackup = async (backupPayload, passphrase, userId = "") => {
   const { ciphertext, iv, salt, iterations = 150000 } = backupPayload;
   if (!ciphertext || !iv || !salt) {
     throw new Error("Incomplete backup payload");
@@ -364,16 +391,37 @@ export const restorePassphraseBackup = async (backupPayload, passphrase) => {
   // 1. Derive KEK via PBKDF2
   const kek = await deriveKekFromPassphrase(passphrase, saltBuffer, iterations);
 
-  // 2. Decrypt PKCS#8 buffer
-  const pkcs8Buffer = await window.crypto.subtle.decrypt(
-    {
-      name: "AES-GCM",
-      iv: ivBuffer,
-      tagLength: 128,
-    },
-    kek,
-    ciphertextBuffer
-  );
+  // 2. Decrypt PKCS#8 buffer: try with user-bound AAD first, fallback without AAD for legacy backups
+  const encoder = new TextEncoder();
+  const aad = encoder.encode(`campusx:e2ee:key-backup:v1:${userId || ""}`);
+
+  let pkcs8Buffer;
+  try {
+    pkcs8Buffer = await window.crypto.subtle.decrypt(
+      {
+        name: "AES-GCM",
+        iv: ivBuffer,
+        additionalData: aad,
+        tagLength: 128,
+      },
+      kek,
+      ciphertextBuffer
+    );
+  } catch (aadErr) {
+    try {
+      pkcs8Buffer = await window.crypto.subtle.decrypt(
+        {
+          name: "AES-GCM",
+          iv: ivBuffer,
+          tagLength: 128,
+        },
+        kek,
+        ciphertextBuffer
+      );
+    } catch {
+      throw aadErr;
+    }
+  }
 
   // 3. Import back into CryptoKey
   return await window.crypto.subtle.importKey(

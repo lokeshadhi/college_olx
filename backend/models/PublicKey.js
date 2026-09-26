@@ -34,6 +34,7 @@ const publicKeySchema = new mongoose.Schema(
       },
     ],
     encryptedBackup: {
+      version: { type: Number, default: 1 },
       ciphertext: { type: String, trim: true },
       iv: { type: String, trim: true },
       salt: { type: String, trim: true },

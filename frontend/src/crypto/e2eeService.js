@@ -27,6 +27,7 @@ import {
   unwrapKeyWithRsa,
   createPassphraseBackup,
   restorePassphraseBackup,
+  verifyKeyPairMatch,
   bufferToBase64,
 } from "./webCryptoUtils";
 import { saveLocalKeyPair, getLocalKeyPair, clearLocalKeyPair } from "./keyStore";
@@ -85,6 +86,11 @@ class E2EEService {
     const userId = user._id.toString();
     this.currentUserId = userId;
 
+    // Guard: If in-memory state already has a valid privateKey for this user, do NOT overwrite or downgrade
+    if (this.localCryptoKey?.privateKey && this.currentUserId === userId) {
+      return { status: "ready", fingerprint: this.localCryptoKey.fingerprint };
+    }
+
     // 1. Check if user already has local keys in IndexedDB
     const local = await getLocalKeyPair(userId);
 
@@ -116,13 +122,31 @@ class E2EEService {
       if (pubRes.data?.success && pubRes.data?.data?.publicKey) {
         const serverKey = pubRes.data.data;
         const publicKey = await importPublicKey(serverKey.publicKey);
-        this.localCryptoKey = {
-          privateKey: null,
-          publicKey,
-          publicKeySpki: serverKey.publicKey,
+
+        // Check if an encrypted backup exists on the server to recover
+        let hasBackup = false;
+        try {
+          const backupRes = await api.get("/chat/keys/backup");
+          hasBackup = !!(backupRes.data?.success && backupRes.data?.data?.ciphertext);
+        } catch {
+          hasBackup = false;
+        }
+
+        // Only set public-key state if no privateKey is currently active in memory
+        if (!this.localCryptoKey?.privateKey) {
+          this.localCryptoKey = {
+            privateKey: null,
+            publicKey,
+            publicKeySpki: serverKey.publicKey,
+            fingerprint: serverKey.fingerprint,
+          };
+        }
+
+        return {
+          status: hasBackup ? "needs_password_recovery" : "ready_sender_only",
           fingerprint: serverKey.fingerprint,
+          hasBackup,
         };
-        return { status: "ready_sender_only", fingerprint: serverKey.fingerprint };
       }
     } catch {
       // 404 means no public key registered on server yet
@@ -467,7 +491,11 @@ class E2EEService {
       throw new Error("No private key loaded to backup");
     }
 
-    const backupPayload = await createPassphraseBackup(this.localCryptoKey.privateKey, password);
+    const backupPayload = await createPassphraseBackup(
+      this.localCryptoKey.privateKey,
+      password,
+      this.currentUserId || ""
+    );
     const res = await api.post("/chat/keys/backup", backupPayload);
     return res.data?.success;
   }
@@ -486,7 +514,7 @@ class E2EEService {
       }
 
       const backupData = res.data.data;
-      const privateKey = await restorePassphraseBackup(backupData, password);
+      const privateKey = await restorePassphraseBackup(backupData, password, userId);
 
       // Fetch public key from backend to store complete keypair in IndexedDB
       const pubRes = await api.get(`/chat/keys/public-key/${userId}`);
@@ -498,6 +526,14 @@ class E2EEService {
       }
 
       const publicKey = await importPublicKey(publicKeySpki);
+
+      // Cryptographically verify restored private key matches registered public key!
+      const isMatch = await verifyKeyPairMatch(privateKey, publicKey);
+      if (!isMatch) {
+        console.error("Cryptographic verification failed: Restored private key does not match registered public key.");
+        return { success: false, reason: "KEY_MISMATCH", error: "Restored private key does not match registered public key" };
+      }
+
       const privateKeyPkcs8 = await exportPrivateKey(privateKey);
 
       await saveLocalKeyPair(userId, {
@@ -517,6 +553,19 @@ class E2EEService {
     } catch (err) {
       return { success: false, reason: "DECRYPTION_FAILED", error: err.message };
     }
+  }
+
+  /**
+   * Unlocks the user's private key from remote backup using account login password
+   * on devices where IndexedDB was missing or cleared.
+   * @param {string} password
+   * @returns {Promise<{ success: boolean, fingerprint?: string, error?: string }>}
+   */
+  async unlockWithPassword(password) {
+    if (!this.currentUserId) {
+      throw new Error("No user initialized for key unlocking");
+    }
+    return await this.restoreWithPassword(this.currentUserId, password);
   }
 
   /**

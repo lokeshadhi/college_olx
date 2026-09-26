@@ -123,7 +123,7 @@ export const getPublicKeyByUserId = async (req, res, next) => {
 export const storeEncryptedBackup = async (req, res, next) => {
   try {
     const userId = req.user._id;
-    const { ciphertext, iv, salt, iterations = 150000 } = req.body;
+    const { ciphertext, iv, salt, iterations = 150000, version = 1 } = req.body;
 
     if (!ciphertext || !iv || !salt) {
       return res.status(400).json({
@@ -140,6 +140,7 @@ export const storeEncryptedBackup = async (req, res, next) => {
         publicKey: "PENDING",
         fingerprint: "PENDING",
         encryptedBackup: {
+          version: Number(version) || 1,
           ciphertext: ciphertext.trim(),
           iv: iv.trim(),
           salt: salt.trim(),
@@ -149,6 +150,7 @@ export const storeEncryptedBackup = async (req, res, next) => {
       });
     } else {
       record.encryptedBackup = {
+        version: Number(version) || 1,
         ciphertext: ciphertext.trim(),
         iv: iv.trim(),
         salt: salt.trim(),
