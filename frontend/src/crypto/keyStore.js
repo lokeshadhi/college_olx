@@ -115,24 +115,3 @@ export const clearLocalKeyPair = async (userId) => {
     request.onerror = (e) => reject(new Error(`Failed to delete keys: ${e.target.error?.message}`));
   });
 };
-
-/**
- * Lists all stored user IDs in IndexedDB (for diagnostic & account-isolation verification)
- * @returns {Promise<string[]>}
- */
-export const getAllStoredUserIds = async () => {
-  if (typeof window === "undefined" || !window.indexedDB) return [];
-  try {
-    const db = await openKeyDatabase();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], "readonly");
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.getAllKeys();
-      request.onsuccess = () => resolve((request.result || []).map(String));
-      request.onerror = (e) => reject(new Error(`Failed to list keys: ${e.target.error?.message}`));
-    });
-  } catch {
-    return [];
-  }
-};
-

@@ -33,17 +33,11 @@ const Chat = () => {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messagesError, setMessagesError] = useState(null);
   const [displayedConversationId, setDisplayedConversationId] = useState(null);
-  const [e2eeReady, setE2eeReady] = useState(false);
 
   // Per-conversation message cache: convId -> { messages, hasMore, page, timestamp }
   const messagesCacheRef = useRef(new Map());
   // Active request tracking to eliminate race conditions
   const currentRequestRef = useRef({ conversationId: null, requestId: 0 });
-
-  // Clear conversation cache when user changes to ensure strict account isolation
-  useEffect(() => {
-    messagesCacheRef.current.clear();
-  }, [user?._id]);
 
   const [peerE2eeInfo, setPeerE2eeInfo] = useState({
     isEncrypted: false,
@@ -150,18 +144,16 @@ const Chat = () => {
     };
   }, []);
 
-  // Authoritative E2EE cryptographic identity initialization for logged-in user
+  // Initialize E2EE cryptographic identity for logged-in user from local IndexedDB
   useEffect(() => {
     if (!user?._id) return;
     let isMounted = true;
 
     e2eeService
-      .ensureE2eeInitialized(user)
+      .initUserKeys(user)
       .then((res) => {
         if (!isMounted) return;
-        if (res?.status === "ready") {
-          setE2eeReady(true);
-        } else if (res?.status === "missing_local_keys") {
+        if (res?.status === "missing_local_keys") {
           console.info("E2EE: Keys not present in local storage. Log in to restore keys.");
         }
       })
@@ -173,38 +165,6 @@ const Chat = () => {
       isMounted = false;
     };
   }, [user]);
-
-  // If E2EE readiness finishes after messages were fetched with NO_PRIVATE_KEY, re-decrypt them
-  useEffect(() => {
-    if (!e2eeReady || !messages.length || !conversationId) return;
-    const hasUnresolved = messages.some((m) => m.decryptionError === "NO_PRIVATE_KEY");
-    if (!hasUnresolved) return;
-
-    const myId = (user?._id || user?.id || "").toString();
-    Promise.all(
-      messages.map(async (m) => {
-        if (m.decryptionError === "NO_PRIVATE_KEY") {
-          const dec = await e2eeService.decryptMessage(m, myId);
-          return {
-            ...m,
-            content: dec.decryptedText,
-            isEncrypted: dec.isEncrypted,
-            decryptionError: dec.error,
-          };
-        }
-        return m;
-      })
-    ).then((reDecrypted) => {
-      setMessages(reDecrypted);
-      const cached = messagesCacheRef.current.get(conversationId);
-      if (cached) {
-        messagesCacheRef.current.set(conversationId, {
-          ...cached,
-          messages: reDecrypted,
-        });
-      }
-    });
-  }, [e2eeReady, conversationId, user]);
 
   // Check recipient E2EE key status and fingerprint
   useEffect(() => {
@@ -290,13 +250,6 @@ const Chat = () => {
               }
             })
             .catch(() => {});
-        }
-
-        // Ensure E2EE is initialized before retrieving and decrypting messages
-        if (user) {
-          try {
-            await e2eeService.ensureE2eeInitialized(user);
-          } catch {}
         }
 
         const msgRes = await chatService.getMessages(convId, pageNum, 30);
@@ -583,32 +536,50 @@ const Chat = () => {
       messageType = "image";
     }
 
-    let payload = {
-      conversationId,
-      content,
-      messageType,
-      imageUrl,
-      encryptionVersion: 0,
-    };
+    let payload;
 
-    if (messageType === "text" && peerE2eeInfo.peerHasKey && otherUser?._id) {
-      try {
-        const encrypted = await e2eeService.encryptMessage(
-          conversationId,
-          currentUserId,
-          otherUser._id,
-          content
-        );
-        payload = {
-          conversationId,
-          content: "",
-          messageType: "text",
-          imageUrl: "",
-          ...encrypted,
-        };
-      } catch (err) {
-        console.warn("E2EE encryption warning, sending legacy fallback:", err);
+    if (messageType === "image") {
+      payload = {
+        conversationId,
+        content: "",
+        messageType: "image",
+        imageUrl,
+        encryptionVersion: 0,
+      };
+    } else {
+      // Find recipient user ID reliably
+      const receiverParticipant = activeConversation?.participants?.find((p) => {
+        const id = (p?._id || p?.id || p || "").toString();
+        return id && id !== currentUserId;
+      });
+      const receiverId = (
+        receiverParticipant?._id ||
+        receiverParticipant?.id ||
+        receiverParticipant ||
+        otherUser?._id ||
+        otherUser?.id ||
+        ""
+      ).toString();
+
+      if (!receiverId) {
+        throw new Error("Recipient could not be identified for this conversation.");
       }
+
+      // Always encrypt message text using Web Crypto AES-256-GCM + RSA-OAEP
+      const encrypted = await e2eeService.encryptMessage(
+        conversationId,
+        currentUserId,
+        receiverId,
+        content
+      );
+
+      payload = {
+        conversationId,
+        content: "", // NEVER send plaintext content in the payload to the server!
+        messageType: "text",
+        imageUrl: "",
+        ...encrypted, // encryptionVersion: 1, ciphertext, iv, encryptedKey, senderEncryptedKey, keyFingerprint
+      };
     }
 
     // Decrypt returned message before saving to state
@@ -616,8 +587,8 @@ const Chat = () => {
       const dec = await e2eeService.decryptMessage(rawMsg, currentUserId);
       return {
         ...rawMsg,
-        content: dec.decryptedText,
-        isEncrypted: dec.isEncrypted,
+        content: dec.decryptedText || (messageType === "text" ? content : rawMsg.content),
+        isEncrypted: dec.isEncrypted !== undefined ? dec.isEncrypted : (Number(rawMsg.encryptionVersion) >= 1),
         decryptionError: dec.error,
       };
     };
