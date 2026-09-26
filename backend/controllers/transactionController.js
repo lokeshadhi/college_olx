@@ -420,7 +420,7 @@ export const getProductTransaction = async (req, res, next) => {
 export const updateTransactionStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { status, meetupLocation, notes } = req.body;
+    const { status, meetupLocation, notes, confirmCompletion } = req.body;
     const currentUserId = req.user._id;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -469,21 +469,44 @@ export const updateTransactionStatus = async (req, res, next) => {
       });
     }
 
-    // Strict Security Rule: Only the SELLER can approve and complete a transaction
-    if (["COMPLETED", "ACCEPTED"].includes(status)) {
-      if (!isSeller) {
-        return res.status(403).json({
-          success: false,
-          message: "Only the seller can approve and complete this purchase request.",
-        });
+    // Mutual confirmation logic
+    if (confirmCompletion) {
+      if (isBuyer) transaction.buyerConfirmed = true;
+      if (isSeller) transaction.sellerConfirmed = true;
+
+      if (transaction.buyerConfirmed && transaction.sellerConfirmed) {
+        transaction.status = "COMPLETED";
+      } else {
+        transaction.status = "ACCEPTED";
+      }
+    } else if (status) {
+      // Strict Security Rule: Only the SELLER can approve and complete a transaction
+      if (["COMPLETED", "ACCEPTED"].includes(status)) {
+        if (!isSeller) {
+          return res.status(403).json({
+            success: false,
+            message: "Only the seller can approve and complete this purchase request.",
+          });
+        }
+      }
+
+      transaction.status = status;
+
+      if (status === "ACCEPTED") {
+        transaction.buyerConfirmed = false;
+        transaction.sellerConfirmed = false;
+      }
+
+      if (status === "COMPLETED") {
+        transaction.buyerConfirmed = true;
+        transaction.sellerConfirmed = true;
       }
     }
 
-    if (status) transaction.status = status;
     if (meetupLocation) transaction.meetupLocation = meetupLocation;
     if (notes) transaction.notes = notes;
 
-    if (status === "COMPLETED") {
+    if (transaction.status === "COMPLETED") {
       transaction.completedAt = new Date();
       // Mark associated product as Sold
       const product = await Product.findById(transaction.product);

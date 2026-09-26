@@ -4,7 +4,18 @@ import { resolveImageUrl } from "../../utils/constants.js";
 const formatMessageTime = (dateStr) => {
   if (!dateStr) return "";
   const date = new Date(dateStr);
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const now = new Date();
+
+  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  const isCurrentYear = date.getFullYear() === now.getFullYear();
+  const datePart = date.toLocaleDateString([], {
+    day: "numeric",
+    month: "short",
+    ...(isCurrentYear ? {} : { year: "numeric" }),
+  });
+
+  return `${datePart}, ${time}`;
 };
 
 const MessageBubble = ({ message, currentUserId, onImageClick }) => {
@@ -58,7 +69,9 @@ const MessageBubble = ({ message, currentUserId, onImageClick }) => {
               <FiLock size={10} />
             </span>
           )}
-          <span>{formatMessageTime(message.createdAt)}</span>
+          <span title={message.createdAt ? new Date(message.createdAt).toLocaleString() : ""}>
+            {formatMessageTime(message.createdAt)}
+          </span>
           {isSent && (
             <span className={`receipt-icon ${message.read ? "receipt-read" : ""}`}>
               {message.read ? "✓✓" : "✓"}

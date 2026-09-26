@@ -43,6 +43,14 @@ const transactionSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    buyerConfirmed: {
+      type: Boolean,
+      default: false,
+    },
+    sellerConfirmed: {
+      type: Boolean,
+      default: false,
+    },
     meetupLocation: {
       type: String,
       trim: true,

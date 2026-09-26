@@ -631,6 +631,53 @@
   background: var(--color-paper);
 }
 
+/* Date Divider Pill in Chat */
+.chat-date-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 1.25rem 0 0.85rem;
+  position: relative;
+  width: 100%;
+}
+
+.chat-date-divider::before {
+  content: "";
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  top: 50%;
+  height: 1px;
+  background: var(--color-border, rgba(0, 0, 0, 0.08));
+  z-index: 1;
+}
+
+.chat-date-divider span {
+  position: relative;
+  z-index: 2;
+  background: var(--color-paper, #FFFFFF);
+  color: var(--color-text-muted, #86868B);
+  font-size: 0.74rem;
+  font-weight: 500;
+  padding: 4px 14px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  letter-spacing: 0.01em;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+
+[data-theme="dark"] .chat-date-divider::before {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .chat-date-divider span {
+  background: #1C1C1E;
+  color: #8E8E93;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
 /* Message Bubbles */
 .message-row {
   display: flex;

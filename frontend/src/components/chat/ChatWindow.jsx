@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Fragment } from "react";
 import { Link } from "react-router-dom";
 import {
   FiArrowLeft,
@@ -18,6 +18,29 @@ import TypingIndicator from "./TypingIndicator.jsx";
 import { useAuth } from "../../hooks/useAuth.js";
 import { useSocket } from "../../hooks/useSocket.js";
 import { resolveImageUrl } from "../../utils/constants.js";
+
+const formatDateDivider = (dateStr) => {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+
+  if (date.toDateString() === now.toDateString()) {
+    return "Today";
+  }
+  if (date.toDateString() === yesterday.toDateString()) {
+    return "Yesterday";
+  }
+
+  const isCurrentYear = date.getFullYear() === now.getFullYear();
+  return date.toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    ...(isCurrentYear ? {} : { year: "numeric" }),
+  });
+};
 
 const ChatWindow = ({
   conversation,
@@ -509,14 +532,27 @@ const ChatWindow = ({
           </button>
         )}
 
-        {messages.map((msg) => (
-          <MessageBubble
-            key={msg._id}
-            message={msg}
-            currentUserId={user?._id}
-            onImageClick={(url) => setLightboxImage(url)}
-          />
-        ))}
+        {messages.map((msg, index) => {
+          const prevMsg = index > 0 ? messages[index - 1] : null;
+          const msgDate = msg.createdAt ? new Date(msg.createdAt).toDateString() : "";
+          const prevDate = prevMsg?.createdAt ? new Date(prevMsg.createdAt).toDateString() : "";
+          const showDateDivider = msgDate && msgDate !== prevDate;
+
+          return (
+            <Fragment key={msg._id || index}>
+              {showDateDivider && (
+                <div className="chat-date-divider">
+                  <span>{formatDateDivider(msg.createdAt)}</span>
+                </div>
+              )}
+              <MessageBubble
+                message={msg}
+                currentUserId={user?._id}
+                onImageClick={(url) => setLightboxImage(url)}
+              />
+            </Fragment>
+          );
+        })}
 
         {isOtherTyping && <TypingIndicator userName={otherUser?.name || "User"} />}
       </div>

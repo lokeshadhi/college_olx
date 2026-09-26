@@ -1265,5 +1265,80 @@ describe("CampusX Feature #19: Ratings & Reviews Test Suite", () => {
         const remainingTxn = transactionsDb.find((t) => t._id.toString() === buyer2TxnId.toString());
         assert.equal(remainingTxn.status, "PENDING");
       });
+
+      it("should require mutual agreement (both buyer and seller confirmation) before transitioning ACCEPTED to COMPLETED", async () => {
+        mockProduct.status = "Available";
+        transactionsDb = [];
+
+        // 1. Buyer submits purchase request
+        const buyRes = await fetch(`${baseUrl}/api/transactions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${buyerToken}`,
+          },
+          body: JSON.stringify({
+            productId: mockProductId.toString(),
+            amount: 800,
+            meetupLocation: "Admin Block",
+          }),
+        });
+        const buyBody = await buyRes.json();
+        assert.equal(buyRes.status, 201);
+        const txnId = buyBody.data._id;
+
+        // 2. Seller accepts offer -> status becomes ACCEPTED
+        const acceptRes = await fetch(`${baseUrl}/api/transactions/${txnId}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${sellerToken}`,
+          },
+          body: JSON.stringify({
+            status: "ACCEPTED",
+          }),
+        });
+        const acceptBody = await acceptRes.json();
+        assert.equal(acceptRes.status, 200);
+        assert.equal(acceptBody.data.status, "ACCEPTED");
+        assert.equal(acceptBody.data.buyerConfirmed, false);
+        assert.equal(acceptBody.data.sellerConfirmed, false);
+
+        // 3. Buyer confirms completion -> buyerConfirmed = true, but status remains ACCEPTED
+        const buyerConfirmRes = await fetch(`${baseUrl}/api/transactions/${txnId}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${buyerToken}`,
+          },
+          body: JSON.stringify({
+            confirmCompletion: true,
+          }),
+        });
+        const buyerConfirmBody = await buyerConfirmRes.json();
+        assert.equal(buyerConfirmRes.status, 200);
+        assert.equal(buyerConfirmBody.data.status, "ACCEPTED");
+        assert.equal(buyerConfirmBody.data.buyerConfirmed, true);
+        assert.equal(buyerConfirmBody.data.sellerConfirmed, false);
+        assert.equal(mockProduct.status, "Available");
+
+        // 4. Seller confirms completion -> both confirmed, status becomes COMPLETED
+        const sellerConfirmRes = await fetch(`${baseUrl}/api/transactions/${txnId}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `token=${sellerToken}`,
+          },
+          body: JSON.stringify({
+            confirmCompletion: true,
+          }),
+        });
+        const sellerConfirmBody = await sellerConfirmRes.json();
+        assert.equal(sellerConfirmRes.status, 200);
+        assert.equal(sellerConfirmBody.data.status, "COMPLETED");
+        assert.equal(sellerConfirmBody.data.buyerConfirmed, true);
+        assert.equal(sellerConfirmBody.data.sellerConfirmed, true);
+        assert.equal(mockProduct.status, "Sold");
+      });
     });
   });

@@ -137,17 +137,21 @@ const MyTransactions = () => {
     }
   };
 
-  const handleCompleteDeal = async (txnId) => {
+  const handleConfirmCompletion = async (txnId) => {
     if (!txnId) return;
     setActionLoading(txnId);
     try {
-      const res = await updateTransactionStatus(txnId, { status: "COMPLETED" });
+      const res = await updateTransactionStatus(txnId, { confirmCompletion: true });
       if (res.success) {
-        toast.success("Deal completed! You can now rate each other.");
+        if (res.data?.status === "COMPLETED") {
+          toast.success("Deal finalized! Both parties have confirmed. You can now rate each other.");
+        } else {
+          toast.success("Confirmation recorded! Waiting for the other party to confirm.");
+        }
         await loadData();
       }
     } catch (err) {
-      toast.error(err.message || "Failed to complete deal");
+      toast.error(err.message || "Failed to confirm deal");
     } finally {
       setActionLoading(null);
     }
@@ -392,34 +396,58 @@ const MyTransactions = () => {
                       </div>
                     )}
 
-                    {/* 2. Meetup in Progress State (ACCEPTED) */}
+                    {/* 2. Meetup in Progress State (ACCEPTED) - Mutual Agreement */}
                     {isAccepted && (
-                      <div>
-                        {!isBuyer ? (
-                          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                            <button
-                              type="button"
-                              className="transaction-complete-btn"
-                              onClick={() => handleCompleteDeal(t._id)}
-                              disabled={actionLoading === t._id}
-                            >
-                              <FiCheckCircle size={14} />
-                              <span>{actionLoading === t._id ? "Completing..." : "Complete Deal"}</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="transaction-decline-btn"
-                              onClick={() => handleDecline(t._id)}
-                              disabled={actionLoading === t._id}
-                            >
-                              Cancel Deal
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="transaction-status-pill info">
-                            <FiClock size={12} /> Meetup in Progress
-                          </span>
-                        )}
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" }}>
+                        {(() => {
+                          const myConfirmed = isBuyer ? Boolean(t.buyerConfirmed) : Boolean(t.sellerConfirmed);
+                          const counterpartConfirmed = isBuyer ? Boolean(t.sellerConfirmed) : Boolean(t.buyerConfirmed);
+
+                          if (!myConfirmed) {
+                            return (
+                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" }}>
+                                {counterpartConfirmed && (
+                                  <div style={{ fontSize: "0.76rem", color: "#FFD60A", fontWeight: 500 }}>
+                                    {counterpart?.name || "Other party"} has confirmed! Click below to finalize.
+                                  </div>
+                                )}
+                                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                  <button
+                                    type="button"
+                                    className="transaction-confirm-btn"
+                                    onClick={() => handleConfirmCompletion(t._id)}
+                                    disabled={actionLoading === t._id}
+                                  >
+                                    <FiCheckCircle size={14} />
+                                    <span>
+                                      {actionLoading === t._id
+                                        ? "Confirming..."
+                                        : isBuyer
+                                        ? "Confirm Receipt"
+                                        : "Confirm Handover"}
+                                    </span>
+                                  </button>
+                                  {!isBuyer && (
+                                    <button
+                                      type="button"
+                                      className="transaction-decline-btn"
+                                      onClick={() => handleDecline(t._id)}
+                                      disabled={actionLoading === t._id}
+                                    >
+                                      Cancel Deal
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <span className="transaction-status-pill accepted">
+                              <FiClock size={12} /> You confirmed • Awaiting {isBuyer ? "seller handover" : "buyer receipt"}
+                            </span>
+                          );
+                        })()}
                       </div>
                     )}
 

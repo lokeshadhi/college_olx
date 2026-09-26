@@ -693,9 +693,15 @@
 }
 
 .transaction-badge-accepted {
-  background: rgba(10, 132, 255, 0.12);
-  color: #0A84FF;
-  border: 1px solid rgba(10, 132, 255, 0.25);
+  background: rgba(255, 214, 10, 0.15);
+  color: #B28600;
+  border: 1px solid rgba(255, 214, 10, 0.35);
+}
+
+[data-theme="dark"] .transaction-badge-accepted {
+  background: rgba(255, 214, 10, 0.18);
+  color: #FFD60A;
+  border: 1px solid rgba(255, 214, 10, 0.35);
 }
 
 .transaction-badge-pending {
@@ -824,6 +830,46 @@
   background: rgba(10, 132, 255, 0.12);
   border: 1px solid rgba(10, 132, 255, 0.25);
   color: #0A84FF;
+}
+
+.transaction-status-pill.accepted {
+  background: rgba(255, 214, 10, 0.15);
+  border: 1px solid rgba(255, 214, 10, 0.35);
+  color: #B28600;
+}
+
+[data-theme="dark"] .transaction-status-pill.accepted {
+  background: rgba(255, 214, 10, 0.18);
+  border: 1px solid rgba(255, 214, 10, 0.35);
+  color: #FFD60A;
+}
+
+.transaction-confirm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 9999px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  background: #FFD60A;
+  color: #000000;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(255, 214, 10, 0.35);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.transaction-confirm-btn:hover:not(:disabled) {
+  background: #FFE033;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 214, 10, 0.5);
+}
+
+.transaction-confirm-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .transaction-rate-btn {

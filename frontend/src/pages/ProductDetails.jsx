@@ -186,15 +186,20 @@ const ProductDetails = () => {
   const handleCompleteRequest = async (txnId) => {
     setActionLoading(txnId);
     try {
-      const res = await updateTransactionStatus(txnId, { status: "COMPLETED" });
+      const res = await updateTransactionStatus(txnId, { confirmCompletion: true });
       if (res.success) {
-        toast.success("Deal completed! You can now rate each other.");
-        setProduct((prev) => ({ ...prev, status: "Sold" }));
-        fetchTxnInfo();
-        setTimeout(() => setReviewModalOpen(true), 400);
+        if (res.data?.status === "COMPLETED") {
+          toast.success("Deal finalized! Both parties have confirmed. You can now rate each other.");
+          setProduct((prev) => ({ ...prev, status: "Sold" }));
+          fetchTxnInfo();
+          setTimeout(() => setReviewModalOpen(true), 400);
+        } else {
+          toast.success("Confirmation recorded! Waiting for the other party to confirm.");
+          fetchTxnInfo();
+        }
       }
     } catch (err) {
-      toast.error(err.message || "Failed to complete deal");
+      toast.error(err.message || "Failed to confirm deal");
     } finally {
       setActionLoading(null);
     }
@@ -680,11 +685,11 @@ const ProductDetails = () => {
                 <div
                   style={{
                     background: "var(--color-paper-subtle)",
-                    border: "1px solid rgba(10, 132, 255, 0.35)",
+                    border: "1px solid rgba(255, 214, 10, 0.35)",
                     borderRadius: "var(--radius-md)",
                     padding: "18px",
                     textAlign: "center",
-                    boxShadow: "0 4px 16px rgba(0, 113, 227, 0.08)",
+                    boxShadow: "0 4px 16px rgba(255, 214, 10, 0.08)",
                   }}
                 >
                   <div
@@ -694,7 +699,7 @@ const ProductDetails = () => {
                       justifyContent: "center",
                       gap: "8px",
                       fontWeight: 600,
-                      color: "#0A84FF",
+                      color: "#FFD60A",
                       marginBottom: "6px",
                       fontSize: "0.95rem",
                     }}
@@ -744,40 +749,69 @@ const ProductDetails = () => {
                     </div>
                   )}
 
-                  {isOwner && (
-                    <div style={{ display: "flex", gap: "8px", justifyContent: "center", marginTop: "6px" }}>
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() => handleCompleteRequest(txnInfo.transaction._id)}
-                        loading={actionLoading === txnInfo.transaction._id}
-                        disabled={Boolean(actionLoading)}
-                        style={{
-                          background: "#30D158",
-                          border: "none",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          fontWeight: 500,
-                        }}
-                      >
-                        <FiCheckCircle size={14} />
-                        <span>Complete Deal</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeclineRequest(txnInfo.transaction._id)}
-                        disabled={Boolean(actionLoading)}
-                        style={{
-                          color: "var(--color-danger)",
-                          borderColor: "rgba(255, 69, 58, 0.35)",
-                        }}
-                      >
-                        Cancel Deal
-                      </Button>
-                    </div>
-                  )}
+                  {(() => {
+                    const myConfirmed = isOwner
+                      ? Boolean(txnInfo.transaction.sellerConfirmed)
+                      : Boolean(txnInfo.transaction.buyerConfirmed);
+                    const counterpartConfirmed = isOwner
+                      ? Boolean(txnInfo.transaction.buyerConfirmed)
+                      : Boolean(txnInfo.transaction.sellerConfirmed);
+
+                    if (!myConfirmed) {
+                      return (
+                        <div style={{ marginTop: "10px" }}>
+                          {counterpartConfirmed && (
+                            <p style={{ fontSize: "0.8rem", color: "#FFD60A", marginBottom: "8px", fontWeight: 500 }}>
+                              {txnInfo.targetUser?.name || "Other party"} has already confirmed! Click below to complete deal.
+                            </p>
+                          )}
+                          <div style={{ display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap" }}>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => handleCompleteRequest(txnInfo.transaction._id)}
+                              loading={actionLoading === txnInfo.transaction._id}
+                              disabled={Boolean(actionLoading)}
+                              style={{
+                                background: "#FFD60A",
+                                color: "#000000",
+                                border: "none",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                fontWeight: 600,
+                              }}
+                            >
+                              <FiCheckCircle size={14} />
+                              <span>{isOwner ? "Confirm Handover" : "Confirm Receipt"}</span>
+                            </Button>
+                            {isOwner && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeclineRequest(txnInfo.transaction._id)}
+                                disabled={Boolean(actionLoading)}
+                                style={{
+                                  color: "var(--color-danger)",
+                                  borderColor: "rgba(255, 69, 58, 0.35)",
+                                }}
+                              >
+                                Cancel Deal
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div style={{ marginTop: "10px" }}>
+                        <span className="transaction-status-pill accepted">
+                          <FiClock size={12} /> You confirmed • Awaiting {isOwner ? "buyer receipt" : "seller handover"}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
