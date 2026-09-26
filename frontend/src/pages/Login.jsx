@@ -36,7 +36,7 @@ const Login = () => {
       if (userData && rawPassword) {
         setLoadingText("Setting up secure messaging...");
         try {
-          await e2eeService.ensureUserKeysWithPassword(userData, rawPassword);
+          await e2eeService.ensureE2eeInitialized(userData, rawPassword);
         } catch (keyErr) {
           console.warn("E2EE key recovery warning:", keyErr?.message || keyErr);
         }

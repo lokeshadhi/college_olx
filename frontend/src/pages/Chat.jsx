@@ -33,11 +33,17 @@ const Chat = () => {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messagesError, setMessagesError] = useState(null);
   const [displayedConversationId, setDisplayedConversationId] = useState(null);
+  const [e2eeReady, setE2eeReady] = useState(false);
 
   // Per-conversation message cache: convId -> { messages, hasMore, page, timestamp }
   const messagesCacheRef = useRef(new Map());
   // Active request tracking to eliminate race conditions
   const currentRequestRef = useRef({ conversationId: null, requestId: 0 });
+
+  // Clear conversation cache when user changes to ensure strict account isolation
+  useEffect(() => {
+    messagesCacheRef.current.clear();
+  }, [user?._id]);
 
   const [peerE2eeInfo, setPeerE2eeInfo] = useState({
     isEncrypted: false,
@@ -144,16 +150,18 @@ const Chat = () => {
     };
   }, []);
 
-  // Initialize E2EE cryptographic identity for logged-in user from local IndexedDB
+  // Authoritative E2EE cryptographic identity initialization for logged-in user
   useEffect(() => {
     if (!user?._id) return;
     let isMounted = true;
 
     e2eeService
-      .initUserKeys(user)
+      .ensureE2eeInitialized(user)
       .then((res) => {
         if (!isMounted) return;
-        if (res?.status === "missing_local_keys") {
+        if (res?.status === "ready") {
+          setE2eeReady(true);
+        } else if (res?.status === "missing_local_keys") {
           console.info("E2EE: Keys not present in local storage. Log in to restore keys.");
         }
       })
@@ -165,6 +173,38 @@ const Chat = () => {
       isMounted = false;
     };
   }, [user]);
+
+  // If E2EE readiness finishes after messages were fetched with NO_PRIVATE_KEY, re-decrypt them
+  useEffect(() => {
+    if (!e2eeReady || !messages.length || !conversationId) return;
+    const hasUnresolved = messages.some((m) => m.decryptionError === "NO_PRIVATE_KEY");
+    if (!hasUnresolved) return;
+
+    const myId = (user?._id || user?.id || "").toString();
+    Promise.all(
+      messages.map(async (m) => {
+        if (m.decryptionError === "NO_PRIVATE_KEY") {
+          const dec = await e2eeService.decryptMessage(m, myId);
+          return {
+            ...m,
+            content: dec.decryptedText,
+            isEncrypted: dec.isEncrypted,
+            decryptionError: dec.error,
+          };
+        }
+        return m;
+      })
+    ).then((reDecrypted) => {
+      setMessages(reDecrypted);
+      const cached = messagesCacheRef.current.get(conversationId);
+      if (cached) {
+        messagesCacheRef.current.set(conversationId, {
+          ...cached,
+          messages: reDecrypted,
+        });
+      }
+    });
+  }, [e2eeReady, conversationId, user]);
 
   // Check recipient E2EE key status and fingerprint
   useEffect(() => {
@@ -250,6 +290,13 @@ const Chat = () => {
               }
             })
             .catch(() => {});
+        }
+
+        // Ensure E2EE is initialized before retrieving and decrypting messages
+        if (user) {
+          try {
+            await e2eeService.ensureE2eeInitialized(user);
+          } catch {}
         }
 
         const msgRes = await chatService.getMessages(convId, pageNum, 30);

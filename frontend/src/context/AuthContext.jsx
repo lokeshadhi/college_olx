@@ -9,6 +9,7 @@ import {
   verifyEmail as verifyEmailService,
   resendVerification as resendVerificationService,
 } from "../services/authService.js";
+import e2eeService from "../crypto/e2eeService.js";
 
 export const AuthContext = createContext(null);
 
@@ -24,6 +25,7 @@ export const AuthProvider = ({ children }) => {
         const profile = await fetchProfile();
         setUser(profile);
       } catch (error) {
+        e2eeService.resetState();
         setUser(null);
       } finally {
         setLoading(false);
@@ -62,9 +64,16 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = useCallback(async () => {
-    await logoutUser();
-    setUser(null);
-    toast.success("Logged out successfully");
+    try {
+      e2eeService.resetState();
+      await logoutUser();
+    } catch (e) {
+      console.warn("Logout error:", e);
+    } finally {
+      e2eeService.resetState();
+      setUser(null);
+      toast.success("Logged out successfully");
+    }
   }, []);
 
   const updateProfile = useCallback(async (payload) => {

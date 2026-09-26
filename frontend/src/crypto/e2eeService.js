@@ -38,6 +38,8 @@ class E2EEService {
     this.peerKeyCache = new Map(); // userId -> { publicKey, fingerprint }
     this.decryptedCache = new Map(); // messageId -> string
     this.knownFingerprintsKey = "campusx_known_fingerprints";
+    this.initPromise = null;
+    this.initPromiseUserId = null;
   }
 
   /**
@@ -70,47 +72,13 @@ class E2EEService {
 
   /**
    * Initializes or loads local E2EE keys from IndexedDB for the logged-in user.
-   * Password-based restoration and initial key provisioning are handled during login
-   * via ensureUserKeysWithPassword(). This method strictly checks and activates
-   * locally stored keys without ever prompting for a backup passphrase.
+   * Delegates to authoritative ensureE2eeInitialized flow.
    * 
    * @param {object} user - Logged in user object ({ _id, name, email })
    * @returns {Promise<{ status: string, fingerprint?: string }>}
    */
   async initUserKeys(user) {
-    if (!user || !user._id) {
-      throw new Error("Valid user object required for E2EE initialization");
-    }
-
-    const userId = user._id.toString();
-    this.currentUserId = userId;
-
-    // Check if user already has local keys in IndexedDB
-    const local = await getLocalKeyPair(userId);
-
-    if (local && local.privateKeyPkcs8 && local.publicKeySpki) {
-      try {
-        const privateKey = await importPrivateKey(local.privateKeyPkcs8);
-        const publicKey = await importPublicKey(local.publicKeySpki);
-        const fingerprint = local.fingerprint || (await computeKeyFingerprint(local.publicKeySpki));
-
-        this.localCryptoKey = {
-          privateKey,
-          publicKey,
-          publicKeySpki: local.publicKeySpki,
-          fingerprint,
-        };
-
-        // Ensure backend has current public key registered
-        await this.syncPublicKeyWithBackend(local.publicKeySpki, fingerprint);
-
-        return { status: "ready", fingerprint };
-      } catch (err) {
-        console.error("Failed to restore existing keys from IndexedDB:", err);
-      }
-    }
-
-    return { status: "missing_local_keys" };
+    return this.ensureE2eeInitialized(user);
   }
 
   /**
@@ -263,6 +231,13 @@ class E2EEService {
   async decryptMessage(message, currentUserId) {
     if (!message) return { decryptedText: "", isEncrypted: false };
 
+    // Await any active key initialization if one is currently in-flight
+    if (this.initPromise) {
+      try {
+        await this.initPromise;
+      } catch {}
+    }
+
     // Legacy plaintext message support (encryptionVersion: 0 or undefined)
     if (!message.encryptionVersion || message.encryptionVersion === 0 || !message.ciphertext) {
       return {
@@ -276,6 +251,16 @@ class E2EEService {
       return {
         decryptedText: this.decryptedCache.get(messageId),
         isEncrypted: true,
+      };
+    }
+
+    // Verify account matching to prevent cross-account key leakage
+    const myId = currentUserId?.toString();
+    if (this.currentUserId && myId && this.currentUserId !== myId) {
+      return {
+        decryptedText: "🔒 [Encrypted Message - Private key belongs to another user]",
+        isEncrypted: true,
+        error: "ACCOUNT_MISMATCH",
       };
     }
 
@@ -353,12 +338,20 @@ class E2EEService {
    */
   async restoreWithPassword(userId, password) {
     try {
-      const res = await api.get("/chat/keys/backup");
-      if (!res.data?.success || !res.data?.data || !res.data?.data?.ciphertext) {
+      let backupData = null;
+      try {
+        const res = await api.get("/chat/keys/backup");
+        if (res.data?.success && res.data?.data?.ciphertext) {
+          backupData = res.data.data;
+        }
+      } catch (err) {
+        return { success: false, reason: "NO_BACKUP", error: err.message };
+      }
+
+      if (!backupData || !backupData.ciphertext || !backupData.iv || !backupData.salt) {
         return { success: false, reason: "NO_BACKUP" };
       }
 
-      const backupData = res.data.data;
       const privateKey = await restorePassphraseBackup(backupData, password);
 
       // Fetch public key from backend to store complete keypair in IndexedDB
@@ -373,12 +366,14 @@ class E2EEService {
       const publicKey = await importPublicKey(publicKeySpki);
       const privateKeyPkcs8 = await exportPrivateKey(privateKey);
 
+      // Save to IndexedDB strictly scoped to userId
       await saveLocalKeyPair(userId, {
         publicKeySpki,
         privateKeyPkcs8,
         fingerprint,
       });
 
+      this.currentUserId = userId.toString();
       this.localCryptoKey = {
         privateKey,
         publicKey,
@@ -393,109 +388,162 @@ class E2EEService {
   }
 
   /**
-   * Automatically initializes or recovers user's E2EE identity during login
-   * using the provided account login password.
+   * Authoritative single E2EE initialization & key recovery flow.
+   * - Scopes in-memory keys strictly to user._id (clears prior account keys if switching accounts)
+   * - Uses in-memory single-flight promise to prevent concurrent race conditions
+   * - Loads local key from IndexedDB if present
+   * - If not present and password provided: automatically downloads encrypted backup,
+   *   derives KEK via PBKDF2 with login password, decrypts AES-GCM payload, and restores
+   *   the user's ORIGINAL private key into IndexedDB
+   * - If key is in IndexedDB but missing server backup, uploads encrypted backup
+   * - Logs fingerprint for verification
    * 
    * @param {object} user - User profile object ({ _id, name, email })
-   * @param {string} password - Account login password (ephemeral, not persisted)
-   * @returns {Promise<{ status: string, fingerprint?: string, hasBackup?: boolean, serverFingerprint?: string, restored?: boolean }>}
+   * @param {string} [optionalPassword] - Ephemeral login password in memory
+   * @returns {Promise<{ status: string, fingerprint?: string, hasBackup?: boolean, serverFingerprint?: string, restored?: boolean, isNewKey?: boolean, error?: string }>}
    */
-  async ensureUserKeysWithPassword(user, password) {
-    if (!user || !user._id) {
+  async ensureE2eeInitialized(user, optionalPassword = null) {
+    if (!user || (!user._id && !user.id)) {
       throw new Error("Valid user object required for E2EE setup");
     }
 
-    const userId = user._id.toString();
+    const userId = (user._id || user.id).toString();
+
+    // 1. Account isolation guard: if another account's keys are in memory, purge immediately
+    if (this.currentUserId && this.currentUserId !== userId) {
+      console.log(`[E2EE] Switching account from ${this.currentUserId} to ${userId}. Purging previous user's in-memory keys and cache.`);
+      this.resetState();
+    }
     this.currentUserId = userId;
 
-    // 1. Check if user already has keys stored locally in IndexedDB
-    const local = await getLocalKeyPair(userId);
-    if (local && local.privateKeyPkcs8 && local.publicKeySpki) {
+    // 2. Return active initialization promise if one is already in flight for this exact user
+    if (this.initPromise && this.initPromiseUserId === userId) {
+      return this.initPromise;
+    }
+
+    this.initPromiseUserId = userId;
+    this.initPromise = (async () => {
       try {
-        const privateKey = await importPrivateKey(local.privateKeyPkcs8);
-        const publicKey = await importPublicKey(local.publicKeySpki);
-        const fingerprint = local.fingerprint || (await computeKeyFingerprint(local.publicKeySpki));
+        // If keys for this user are already active in memory, return ready
+        if (
+          this.localCryptoKey?.privateKey &&
+          this.localCryptoKey?.fingerprint &&
+          this.currentUserId === userId
+        ) {
+          console.log(`[E2EE-FINGERPRINT] Account: ${user.name || user.email} (${userId}) | Fingerprint: ${this.localCryptoKey.fingerprint} (In-Memory)`);
+          return { status: "ready", fingerprint: this.localCryptoKey.fingerprint };
+        }
 
-        this.localCryptoKey = {
-          privateKey,
-          publicKey,
-          publicKeySpki: local.publicKeySpki,
-          fingerprint,
-        };
+        // 1. Check if user already has keys stored locally in IndexedDB
+        const local = await getLocalKeyPair(userId);
+        if (local && local.privateKeyPkcs8 && local.publicKeySpki) {
+          try {
+            const privateKey = await importPrivateKey(local.privateKeyPkcs8);
+            const publicKey = await importPublicKey(local.publicKeySpki);
+            const fingerprint = local.fingerprint || (await computeKeyFingerprint(local.publicKeySpki));
 
-        // Ensure backend has current public key registered
-        await this.syncPublicKeyWithBackend(local.publicKeySpki, fingerprint);
+            this.localCryptoKey = {
+              privateKey,
+              publicKey,
+              publicKeySpki: local.publicKeySpki,
+              fingerprint,
+            };
 
-        // Ensure backup exists on server. If missing, silently create one with password
-        try {
-          const backupCheck = await api.get("/chat/keys/backup");
-          if (!backupCheck.data?.success || !backupCheck.data?.data?.ciphertext) {
-            if (password) {
-              await this.backupWithPassword(password);
+            console.log(`[E2EE-FINGERPRINT] Account: ${user.name || user.email} (${userId}) | Fingerprint: ${fingerprint} (IndexedDB)`);
+
+            // Ensure backend has current public key registered
+            await this.syncPublicKeyWithBackend(local.publicKeySpki, fingerprint);
+
+            // Ensure backup exists on server. If missing and password provided, create one
+            if (optionalPassword) {
+              try {
+                const backupCheck = await api.get("/chat/keys/backup");
+                if (!backupCheck.data?.success || !backupCheck.data?.data?.ciphertext) {
+                  await this.backupWithPassword(optionalPassword);
+                  console.log(`[E2EE] Created missing server backup for ${userId}`);
+                }
+              } catch {
+                try {
+                  await this.backupWithPassword(optionalPassword);
+                  console.log(`[E2EE] Created missing server backup for ${userId}`);
+                } catch (e) {
+                  console.warn("Silent key backup creation skipped:", e.message);
+                }
+              }
             }
+
+            return { status: "ready", fingerprint };
+          } catch (err) {
+            console.error("Failed to load local keys from IndexedDB:", err);
+          }
+        }
+
+        // 2. No local keys found in IndexedDB. Check if server already has a registered identity
+        let serverIdentity = null;
+        try {
+          const pubRes = await api.get(`/chat/keys/public-key/${userId}`);
+          if (pubRes.data?.success && pubRes.data?.data?.publicKey) {
+            serverIdentity = pubRes.data.data;
           }
         } catch {
-          if (password) {
-            try {
-              await this.backupWithPassword(password);
-            } catch (e) {
-              console.warn("Silent key backup creation skipped:", e.message);
+          // 404 means no public key registered
+        }
+
+        if (serverIdentity) {
+          // Identity exists on server! Attempt automatic restore with login password
+          if (optionalPassword) {
+            const restoreRes = await this.restoreWithPassword(userId, optionalPassword);
+            if (restoreRes.success) {
+              console.log(`[E2EE-RECOVERY] Successfully recovered ORIGINAL private key for ${userId}. Fingerprint: ${restoreRes.fingerprint}`);
+              console.log(`[E2EE-FINGERPRINT] Account: ${user.name || user.email} (${userId}) | Fingerprint: ${restoreRes.fingerprint} (Recovered from Backup)`);
+              return {
+                status: "ready",
+                fingerprint: restoreRes.fingerprint,
+                restored: true,
+              };
             }
+            console.error(`[E2EE] Failed to restore private key with password: ${restoreRes.error || restoreRes.reason}`);
+          }
+
+          // Private key missing on this device and cannot be restored without password
+          return {
+            status: "missing_local_keys",
+            error: "Private key not found on this device. Login with password to restore keys.",
+          };
+        }
+
+        // 3. Brand new account: generate RSA key pair, register public key, and back up private key
+        const newKeyResult = await this.generateAndRegisterNewKeys(userId);
+        console.log(`[E2EE-FINGERPRINT] Account: ${user.name || user.email} (${userId}) | Fingerprint: ${newKeyResult.fingerprint} (Generated New Keypair)`);
+
+        if (optionalPassword) {
+          try {
+            await this.backupWithPassword(optionalPassword);
+            console.log(`[E2EE] Encrypted backup created for new user ${userId}`);
+          } catch (e) {
+            console.warn("Automatic key backup with password failed:", e.message);
           }
         }
 
-        return { status: "ready", fingerprint };
-      } catch (err) {
-        console.error("Failed to load local keys from IndexedDB:", err);
+        return {
+          status: "ready",
+          fingerprint: newKeyResult.fingerprint,
+          isNewKey: true,
+        };
+      } finally {
+        this.initPromise = null;
+        this.initPromiseUserId = null;
       }
-    }
+    })();
 
-    // 2. No local keys found in IndexedDB. Check if server already has a registered identity
-    let serverIdentity = null;
-    try {
-      const pubRes = await api.get(`/chat/keys/public-key/${userId}`);
-      if (pubRes.data?.success && pubRes.data?.data?.publicKey) {
-        serverIdentity = pubRes.data.data;
-      }
-    } catch {
-      // 404 means no public key registered
-    }
+    return this.initPromise;
+  }
 
-    if (serverIdentity) {
-      // Identity exists on server! Attempt automatic restore with login password
-      if (password) {
-        const restoreRes = await this.restoreWithPassword(userId, password);
-        if (restoreRes.success) {
-          return {
-            status: "ready",
-            fingerprint: restoreRes.fingerprint,
-            restored: true,
-          };
-        }
-      }
-
-      // Automatic restore failed (corrupted backup or key mismatch)
-      return {
-        status: "error",
-        error: "Failed to decrypt private key backup with login password.",
-      };
-    }
-
-    // 3. Brand new account: generate RSA key pair, register public key, and back up private key
-    const newKeyResult = await this.generateAndRegisterNewKeys(userId);
-    if (password) {
-      try {
-        await this.backupWithPassword(password);
-      } catch (e) {
-        console.warn("Automatic key backup with password failed:", e.message);
-      }
-    }
-
-    return {
-      status: "ready",
-      fingerprint: newKeyResult.fingerprint,
-      isNewKey: true,
-    };
+  /**
+   * Compatibility alias for ensureE2eeInitialized with password
+   */
+  async ensureUserKeysWithPassword(user, password) {
+    return this.ensureE2eeInitialized(user, password);
   }
 
   /**
@@ -531,13 +579,15 @@ class E2EEService {
   }
 
   /**
-   * Clears local state and caches (on logout)
+   * Clears all sensitive local state, in-memory keys, and caches (e.g. on logout or account switch)
    */
   resetState() {
     this.currentUserId = null;
     this.localCryptoKey = null;
     this.peerKeyCache.clear();
     this.decryptedCache.clear();
+    this.initPromise = null;
+    this.initPromiseUserId = null;
   }
 }
 
